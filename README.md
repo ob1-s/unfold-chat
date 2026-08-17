@@ -1,8 +1,10 @@
 # stream-talker
 
 Incremental text chat with **speculative continuation**: the model keeps generating
-while you read; each paragraph is revealed only when you continue, and unseen
-draft text never enters the next inference.
+while you read. The first paragraph streams into your chat live as its tokens
+arrive; everything after it is buffered in secret. Each next paragraph is played
+back when you continue, at roughly the pace it was generated, and unseen draft
+text never enters the next inference.
 
 One file, zero dependencies. Requires Node >= 18.
 
@@ -15,8 +17,10 @@ node server.js -b http://localhost:1234/v1 -m my-model        # llama.cpp / LM S
 
 Open `http://localhost:8787` (`-p <port>` to change).
 
-- **Enter** with text sends; **empty Enter** (or the Continue button) reveals the
-  next buffered paragraph.
+- **Enter** with text sends; empty **Enter** (or the Continue button) plays the
+  next buffered paragraph at the measured generation pace (click it to finish
+  instantly).
+- The first paragraph streams in live the moment its tokens arrive.
 - Acks like `yeah`, `ok`, `lol`, `I see` are recorded and never restart inference.
 - Anything else supersedes the draft and starts fresh — only revealed text +
   microturns go into context.

@@ -3,18 +3,26 @@
 //
 // How it works:
 //   POST /api/turns            {history}            -> start generating, {turnId}
-//     the upstream stream is parsed into paragraph chunks as they arrive and
-//     buffered server-side. Nothing is sent to the client until a reveal.
+//     the upstream stream is split into paragraph chunks: the FIRST paragraph
+//     is pushed to the client live over SSE as its tokens arrive; everything
+//     after it is buffered server-side and hidden until a reveal.
 //   GET  /api/turns/:id        -> {status, buffered, revealed, total, error}
+//   GET  /api/turns/:id/stream -> SSE: 'initial' (catch-up if you connect
+//     late), 'delta' (live first-paragraph tokens), 'end' (paragraph done +
+//     measured generation tokens/sec), 'buffered' (draft progress), 'status'
+//     (done / error / superseded, then the stream closes). Hidden draft text
+//     is never emitted on this stream or anywhere else.
 //   POST /api/turns/:id/reveal -> reveal exactly one buffered chunk
 //   POST /api/message          {turnId, history, text}
 //     acks ('yeah', 'ok', 'lol', ...) are recorded as microturns; the draft
-//     keeps buffering and the next reveal continues it. anything else
+//     keeps streaming and later chunks keep buffering. anything else
 //     supersedes the current draft and starts a fresh inference whose context
 //     is ONLY the visible history + recorded microturns + the new message —
 //     unseen buffered text can never leak into model context.
 //
-// Swap the Chunker (paragraph split) for other chunking strategies freely.
+// The client plays revealed chunks back at roughly the tokens/sec the first
+// paragraph was actually generated at, so Continue feels like native
+// streaming. Swap the Chunker (paragraph split) for other chunking freely.
 
 import { createServer } from 'node:http';
 
@@ -120,24 +128,53 @@ function isAck(text) {
 
 // ---------- stream chunking (paragraph boundaries; replace freely) ----------
 
-function makeChunker(onChunk) {
+// onVisible: raw fragment of the still-open FIRST paragraph (streamed live)
+// onFirst:   first paragraph completed (streamed end-to-end to the client)
+// onChunk:   any later paragraph (hidden draft — buffered until a reveal)
+function makeChunker(onVisible, onFirst, onChunk) {
   let pending = '';
+  let firstDone = false;
   const fenceOpen = () => (pending.match(/```/g) || []).length % 2 === 1;
   return {
     push(part) {
+      if (!part) return;
       pending += part;
-      if (fenceOpen()) return; // never split a fenced code block
-      let i;
-      while ((i = pending.indexOf('\n\n')) !== -1) {
-        const para = pending.slice(0, i).replace(/\s+$/, '');
+      if (!firstDone && onVisible) {
+        if (fenceOpen() || pending.indexOf('\n\n') === -1) {
+          onVisible(part);
+          return;
+        }
+        const off = pending.length - part.length;
+        const i = pending.indexOf('\n\n');
+        const vis = part.slice(0, Math.max(0, i - off));
+        if (vis) onVisible(vis);
+        const para0 = pending.slice(0, i).replace(/\s+$/, '');
         pending = pending.slice(i + 2);
-        if (para) onChunk(para);
+        if (para0) {
+          firstDone = true;
+          onFirst(para0);
+        }
+      }
+      if (fenceOpen()) return;
+      let cut;
+      while ((cut = pending.indexOf('\n\n')) !== -1) {
+        const para = pending.slice(0, cut).replace(/\s+$/, '');
+        pending = pending.slice(cut + 2);
+        if (!para) continue;
+        if (!firstDone) {
+          firstDone = true;
+          onFirst(para);
+        } else {
+          onChunk(para);
+        }
       }
     },
     flush() {
       const rest = pending.replace(/^\s+|\s+$/g, '');
-      if (rest) onChunk(rest);
       pending = '';
+      if (!rest) return;
+      if (!firstDone) onFirst(rest);
+      else onChunk(rest);
     },
   };
 }
@@ -146,6 +183,26 @@ function makeChunker(onChunk) {
 
 const turns = new Map();
 let seq = 0;
+
+function broadcast(turn, obj) {
+  const line = 'data: ' + JSON.stringify(obj) + '\n\n';
+  for (const res of turn.sse) {
+    try {
+      res.write(line);
+    } catch {}
+  }
+}
+
+function endSse(turn, obj) {
+  broadcast(turn, obj);
+  for (const res of turn.sse) {
+    try {
+      clearInterval(res._hb);
+      res.end();
+    } catch {}
+  }
+  turn.sse.clear();
+}
 
 function startTurn(ctx) {
   const turn = {
@@ -157,6 +214,13 @@ function startTurn(ctx) {
     error: null,
     superseded: false,
     ctrl: null,
+    sse: new Set(),
+    sseEver: false,
+    firstDone: false,
+    liveText: '',
+    liveChars: 0,
+    liveStart: 0,
+    tps: null,
     created: Date.now(),
   };
   turns.set(turn.id, turn);
@@ -170,6 +234,7 @@ function supersede(turn) {
     turn.ctrl && turn.ctrl.abort();
   } catch {}
   turn.chunks = turn.chunks.slice(0, turn.revealed); // discard all unseen specul(ation)
+  endSse(turn, { type: 'status', status: 'superseded' });
 }
 
 function sweepTurns() {
@@ -246,6 +311,7 @@ async function generate(ctx, turn) {
     if (!turn.superseded) {
       turn.status = 'error';
       turn.error = 'upstream request failed: ' + err.message;
+      endSse(turn, { type: 'status', status: 'error', error: turn.error });
     }
     return;
   }
@@ -257,17 +323,44 @@ async function generate(ctx, turn) {
     } catch {}
     turn.status = 'error';
     turn.error = 'upstream ' + res.status + ' ' + res.statusText + ': ' + detail;
+    endSse(turn, { type: 'status', status: 'error', error: turn.error });
     return;
   }
   const reader = res.body ? res.body.getReader() : null;
   if (!reader) {
     turn.status = 'error';
     turn.error = 'empty upstream body';
+    endSse(turn, { type: 'status', status: 'error', error: turn.error });
     return;
   }
-  const chunker = makeChunker((para) => {
-    if (!turn.superseded) turn.chunks.push(para);
-  });
+  const chunker = makeChunker(
+    (frag) => {
+      // visible first-paragraph fragment — forwarded live to every listener
+      if (turn.superseded) return;
+      if (!turn.liveStart) turn.liveStart = Date.now();
+      turn.liveChars += frag.length;
+      turn.liveText += frag;
+      broadcast(turn, { type: 'delta', t: frag });
+    },
+    (para0) => {
+      // first paragraph complete — the client has seen every char of it
+      if (turn.superseded) return;
+      turn.firstDone = true;
+      turn.chunks.push(para0);
+      const secs = (Date.now() - turn.liveStart) / 1000;
+      const est = turn.liveChars / 4; // chars ~= 4 tokens
+      if (secs > 0.15 && est > 0) turn.tps = +((est / secs).toFixed(1));
+      if (turn.sseEver) turn.revealed = 1; // fully streamed, never re-revealed
+      broadcast(turn, { type: 'end', tps: turn.tps });
+      broadcast(turn, { type: 'buffered', n: turn.chunks.length - turn.revealed });
+    },
+    (para) => {
+      // hidden draft paragraph — buffered, reported as count only
+      if (turn.superseded) return;
+      turn.chunks.push(para);
+      broadcast(turn, { type: 'buffered', n: turn.chunks.length - turn.revealed });
+    }
+  );
   const dec = new TextDecoder();
   let buf = '';
   try {
@@ -290,10 +383,12 @@ async function generate(ctx, turn) {
     if (buf.trim()) feedLine(buf, chunker);
     chunker.flush();
     turn.status = 'done';
+    endSse(turn, { type: 'status', status: 'done', buffered: statusOf(turn).buffered });
   } catch (err) {
     if (turn.superseded) return;
     turn.status = 'error';
     turn.error = 'stream error: ' + err.message;
+    endSse(turn, { type: 'status', status: 'error', error: turn.error });
   }
 }
 
@@ -362,6 +457,58 @@ const server = createServer(async (req, res) => {
       return send(res, 200, 'application/json', JSON.stringify({ content: null, more: false }));
     const idx = turn.revealed++;
     return send(res, 200, 'application/json', JSON.stringify({ content: turn.chunks[idx], more: turn.revealed < turn.chunks.length }));
+  }
+
+  m = path.match(/^\/api\/turns\/([\w-]+)\/stream$/);
+  if (m && req.method === 'GET') {
+    const turn = turns.get(m[1]);
+    if (!turn) return send(res, 404, 'application/json', JSON.stringify({ error: 'no such turn' }));
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    turn.sseEver = true;
+    const snap = turn.liveText; // frozen before attach: no dup, no gap
+    const firstDone = turn.firstDone;
+    turn.sse.add(res);
+    res.write(': connected\n\n');
+    // catch-up: a connection that joins after paragraph 0 finished must get
+    // its full text (initial replaces, never appends, so reconnects are safe)
+    if (firstDone) {
+      if (turn.revealed === 0) turn.revealed = 1; // replayed below, never re-revealed
+      res.write('data: ' + JSON.stringify({ type: 'initial', t: turn.chunks[0] || '' }) + '\n\n');
+      res.write('data: ' + JSON.stringify({ type: 'end', tps: turn.tps }) + '\n\n');
+    } else if (snap) {
+      res.write('data: ' + JSON.stringify({ type: 'initial', t: snap }) + '\n\n');
+    }
+    if (turn.superseded || turn.status === 'done' || turn.status === 'error') {
+      res.write(
+        'data: ' +
+          JSON.stringify({
+            type: 'status',
+            status: turn.superseded ? 'superseded' : turn.status,
+            buffered: statusOf(turn).buffered,
+            error: turn.error,
+          }) +
+          '\n\n'
+      );
+      turn.sse.delete(res);
+      return res.end();
+    }
+    res._hb = setInterval(() => {
+      try {
+        res.write(': hb\n\n');
+      } catch {}
+    }, 15e3);
+    const drop = () => {
+      clearInterval(res._hb);
+      turn.sse.delete(res);
+    };
+    res.on('close', drop);
+    res.on('error', drop);
+    return;
   }
 
   if (req.method === 'POST' && path === '/api/message') {
@@ -446,6 +593,7 @@ main{flex:1;overflow-y:auto;padding:18px 2px 10px;display:flex;flex-direction:co
 .chunk+.chunk{border-top:1px dashed var(--line);margin-top:9px;padding-top:9px}
 .replybtn{position:absolute;top:4px;right:0;display:none;border:1px solid var(--line);background:var(--panel);
   color:var(--muted);font:11px/1 inherit;border-radius:8px;padding:2px 8px;cursor:pointer}
+.chunk.playing{cursor:pointer}
 .chunk:hover .replybtn,.replybtn:focus{display:block}
 .replybtn:hover{color:var(--accent);border-color:var(--accent)}
 .quotechip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px dashed var(--line);
@@ -523,16 +671,19 @@ textarea:focus{border-color:var(--accent)}
 
   var state = {
     turnId: null,
-    visible: [],      // revealed conversation only — sent as context next time
+    visible: [],
     buffered: 0,
     revealed: 0,
-    pending: false,   // user asked to continue before a chunk was ready
+    pending: false,
     busy: false,
     timer: null,
     streaming: false,
     bubble: null,
     caret: null,
-    quote: null,      // {turnId, chunkIdx, text} pending reply target
+    quote: null,
+    live: { text: '', el: null, final: true, renderQueued: false },
+    play: { el: null, full: '', chars: 0, step: 1, timer: null, tps: null, active: false },
+    stream: { id: null, ctrl: null, retry: null, done: true },
   };
 
   function md(s) {
@@ -580,13 +731,141 @@ textarea:focus{border-color:var(--accent)}
     dot.className = 'dot' + (live ? ' live' : '');
   }
 
+  function ensureBubble() {
+    if (!state.bubble) {
+      state.bubble = document.createElement('div');
+      state.bubble.className = 'msg assistant';
+      chat.appendChild(state.bubble);
+    }
+    return state.bubble;
+  }
+
+  function addReply(el, idx, raw) {
+    var rb = document.createElement('button');
+    rb.className = 'replybtn';
+    rb.type = 'button';
+    rb.textContent = 'reply';
+    rb.addEventListener('click', function () {
+      setQuote(state.turnId, idx, raw);
+    });
+    el.appendChild(rb);
+  }
+
   function syncCaret() {
-    if (state.bubble && state.streaming) {
+    var host = null;
+    if (state.live.el && !state.live.final) host = state.live.el;
+    else if (state.play.active && state.play.el) host = state.play.el;
+    if (host) {
       if (!state.caret) state.caret = document.createElement('span');
       state.caret.className = 'caret';
-      if (state.caret.parentNode !== state.bubble) state.bubble.appendChild(state.caret);
+      if (state.caret.parentNode !== host) host.appendChild(state.caret);
     } else if (state.caret && state.caret.parentNode) {
       state.caret.parentNode.removeChild(state.caret);
+    }
+  }
+
+  function renderLive() {
+    if (state.live.renderQueued || state.live.final || !state.live.el) return;
+    state.live.renderQueued = true;
+    requestAnimationFrame(function () {
+      state.live.renderQueued = false;
+      if (state.live.el && !state.live.final) {
+        state.live.el.innerHTML = md(state.live.text);
+        syncCaret();
+        scrollDown();
+      }
+    });
+  }
+
+  function finalizeLive() {
+    if (!state.live.el || state.live.final) return;
+    state.live.final = true;
+    var el = state.live.el;
+    var text = state.live.text;
+    state.live.el = null;
+    state.live.renderQueued = false;
+    el.classList.remove('live');
+    el.innerHTML = md(text);
+    addReply(el, state.revealed, text);
+    state.visible.push({ role: 'assistant', content: text });
+    state.revealed++;
+    syncCaret();
+    showContinue();
+    updateStatus();
+    scrollDown();
+  }
+
+  function playNext() {
+    if (state.play.active || state.live.el || state.busy || !state.turnId) return;
+    if (state.buffered < 1) { state.pending = true; return; }
+    state.busy = true;
+    fetch('/api/turns/' + state.turnId + '/reveal', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        state.busy = false;
+        if (d.error) { setStatus('error: ' + d.error); return; }
+        if (!d.content) { state.pending = false; return; }
+        state.buffered--;
+        var el = document.createElement('div');
+        el.className = 'chunk playing';
+        el.dataset.idx = state.revealed;
+        el.title = 'click to finish';
+        el.addEventListener('click', finishPlay);
+        ensureBubble().appendChild(el);
+        var chars = d.content.length;
+        var rate = (state.play.tps || 20) * 4; // chars/sec ~= tps * 4 chars per token
+        var dur = Math.min(12, Math.max(0.6, chars / Math.max(rate, 4)));
+        var step = Math.max(1, Math.round(chars / (dur * 15)));
+        state.play.el = el;
+        state.play.full = d.content;
+        state.play.chars = 0;
+        state.play.step = step;
+        state.play.active = true;
+        playTick();
+      })
+      .catch(function (e) { state.busy = false; setStatus('reveal failed: ' + e); });
+  }
+
+  function playTick() {
+    if (!state.play.active) return;
+    var p = state.play;
+    p.chars = Math.min(p.full.length, p.chars + p.step);
+    p.el.innerHTML = md(p.full.slice(0, p.chars));
+    syncCaret();
+    if (p.chars >= p.full.length) { finishPlay(); return; }
+    p.timer = setTimeout(playTick, 66);
+  }
+
+  function finishPlay() {
+    var p = state.play;
+    if (!p.active) return;
+    clearTimeout(p.timer);
+    p.active = false;
+    var el = p.el;
+    var full = p.full;
+    var idx = Number(el.dataset.idx);
+    p.el = null;
+    p.full = '';
+    p.chars = 0;
+    p.step = 1;
+    el.classList.remove('playing');
+    el.innerHTML = md(full);
+    addReply(el, idx, full);
+    state.visible.push({ role: 'assistant', content: full });
+    state.revealed++;
+    syncCaret();
+    showContinue();
+    updateStatus();
+    scrollDown();
+    maybeAuto();
+  }
+
+  function maybeAuto() {
+    if (!state.pending) return;
+    if (state.play.active || state.live.el) return;
+    if (state.buffered > 0) {
+      state.pending = false;
+      playNext();
     }
   }
 
@@ -599,70 +878,108 @@ textarea:focus{border-color:var(--accent)}
     badge.textContent = n > 0 ? String(n) : '…';
   }
 
-  function chunkHtml(raw, idx) {
-    if (!state.bubble) {
-      state.bubble = document.createElement('div');
-      state.bubble.className = 'msg assistant';
-      chat.appendChild(state.bubble);
+  function updateStatus() {
+    if (state.streaming) return;
+    if (state.buffered > 0) setStatus('draft ready · ' + state.buffered + ' buffered');
+    else if (state.turnId) setStatus('complete');
+  }
+
+  // ---------- SSE consumption: fetch + ReadableStream (not EventSource) ----------
+
+  function closeStream() {
+    clearTimeout(state.stream.retry);
+    state.stream.retry = null;
+    if (state.stream.ctrl) {
+      try { state.stream.ctrl.abort(); } catch {}
+      state.stream.ctrl = null;
     }
-    var el = document.createElement('div');
-    el.className = 'chunk';
-    el.dataset.idx = idx;
-    el.innerHTML = md(raw);
-    var rb = document.createElement('button');
-    rb.className = 'replybtn';
-    rb.type = 'button';
-    rb.textContent = 'reply';
-    rb.addEventListener('click', function () {
-      setQuote(state.turnId, Number(el.dataset.idx), raw);
-    });
-    el.appendChild(rb);
-    if (state.caret && state.caret.parentNode === state.bubble) state.bubble.insertBefore(el, state.caret);
-    else state.bubble.appendChild(el);
-    state.visible.push({ role: 'assistant', content: raw });
-    scrollDown();
+    state.stream.done = true;
   }
 
-  function setQuote(turnId, chunkIdx, text) {
-    state.quote = { turnId: turnId, chunkIdx: chunkIdx, text: text };
-    quotechiptext.textContent = text.length > 140 ? text.slice(0, 140) + '…' : text;
-    quotechip.hidden = false;
-    input.focus();
+  function ensureLiveEl() {
+    if (!state.live.el) {
+      state.live.el = document.createElement('div');
+      state.live.el.className = 'chunk live';
+      ensureBubble().appendChild(state.live.el);
+    }
   }
 
-  quotechippop.addEventListener('click', function () {
-    state.quote = null;
-    quotechip.hidden = true;
-    input.focus();
-  });
+  function handleFrame(payload) {
+    if (!payload) return;
+    var d;
+    try { d = JSON.parse(payload); } catch { return; }
+    if (state.turnId !== state.stream.id) return;
+    if (d.type === 'initial') {
+      ensureLiveEl();
+      state.live.final = false;
+      state.live.text = d.t;
+      renderLive();
+    } else if (d.type === 'delta') {
+      ensureLiveEl();
+      state.live.final = false;
+      state.live.text += d.t;
+      renderLive();
+    } else if (d.type === 'end') {
+      state.play.tps = d.tps || null;
+      finalizeLive();
+    } else if (d.type === 'buffered') {
+      state.buffered = d.n;
+      showContinue();
+      maybeAuto();
+    } else if (d.type === 'status') {
+      if (d.status === 'done') {
+        state.streaming = false;
+        stopPolling();
+        if (typeof d.buffered === 'number') state.buffered = d.buffered;
+        setStatus(state.buffered ? 'draft ready · ' + state.buffered + ' buffered' : 'complete');
+        closeStream();
+      } else if (d.status === 'error') {
+        state.streaming = false;
+        stopPolling();
+        setStatus('error: ' + (d.error || 'generation failed'));
+        closeStream();
+      } else if (d.status === 'superseded') {
+        state.streaming = false;
+        setStatus('superseded — draft discarded');
+        closeStream();
+      }
+      syncCaret();
+      showContinue();
+      maybeAuto();
+    }
+  }
 
-  function revealOne() {
-    if (state.busy || !state.turnId) return;
-    if (state.buffered < 1) { state.pending = true; return; }
-    state.busy = true;
-    fetch('/api/turns/' + state.turnId + '/reveal', { method: 'POST' })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        state.busy = false;
-        if (d.error) { setStatus('error: ' + d.error); return; }
-        if (d.content) {
-          chunkHtml(d.content, state.revealed);
-          state.revealed++;
-          state.buffered--;
-        } else {
-          state.pending = false;
+  function openStream(id) {
+    closeStream();
+    state.stream.id = id;
+    state.stream.done = false;
+    var ctrl = new AbortController();
+    state.stream.ctrl = ctrl;
+    fetch('/api/turns/' + id + '/stream', { signal: ctrl.signal })
+      .then(function (r) {
+        if (!r.ok || !r.body) throw new Error('stream http ' + r.status);
+        var reader = r.body.getReader();
+        var dec = new TextDecoder();
+        var buf = '';
+        function pump() {
+          return reader.read().then(function (res) {
+            if (res.done) return;
+            buf += dec.decode(res.value, { stream: true });
+            var nl;
+            while ((nl = buf.indexOf('\\n')) !== -1) {
+              var line = buf.slice(0, nl);
+              buf = buf.slice(nl + 1);
+              if (line.indexOf('data:') === 0) handleFrame(line.slice(5).trim());
+            }
+            return pump();
+          });
         }
-        if (state.pending && state.buffered > 0) { state.pending = false; revealOne(); }
-        showContinue();
-        syncCaret();
-        if (!state.streaming && state.buffered > 0) setStatus('draft ready · ' + state.buffered + ' buffered');
+        return pump();
       })
-      .catch(function (e) { state.busy = false; setStatus('reveal failed: ' + e); });
-  }
-
-  function doContinue() {
-    if (state.buffered > 0) revealOne();
-    else if (state.streaming) state.pending = true;
+      .catch(function () {
+        if (state.stream.done) return; // closed on purpose
+        state.stream.retry = setTimeout(function () { openStream(id); }, 1200);
+      });
   }
 
   function poll() {
@@ -684,13 +1001,26 @@ textarea:focus{border-color:var(--accent)}
         }
         syncCaret();
         showContinue();
-        if (state.buffered > 0 && (state.revealed === 0 || state.pending)) { state.pending = false; revealOne(); }
+        maybeAuto();
       })
       .catch(function () {});
   }
 
   function startPolling() { if (!state.timer) state.timer = setInterval(poll, 400); }
   function stopPolling() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
+
+  function setQuote(turnId, chunkIdx, text) {
+    state.quote = { turnId: turnId, chunkIdx: chunkIdx, text: text };
+    quotechiptext.textContent = text.length > 140 ? text.slice(0, 140) + '…' : text;
+    quotechip.hidden = false;
+    input.focus();
+  }
+
+  quotechippop.addEventListener('click', function () {
+    state.quote = null;
+    quotechip.hidden = true;
+    input.focus();
+  });
 
   function addUser(text, quote) {
     var el = document.createElement('div');
@@ -716,6 +1046,12 @@ textarea:focus{border-color:var(--accent)}
     scrollDown();
   }
 
+  function doContinue() {
+    if (state.live.el || state.play.active) { state.pending = true; return; }
+    if (state.buffered > 0) playNext();
+    else if (state.streaming) state.pending = true;
+  }
+
   function sendText(text) {
     var myQuote = state.quote;
     state.quote = null;
@@ -735,18 +1071,26 @@ textarea:focus{border-color:var(--accent)}
         if (d.error) { setStatus('error: ' + d.error); return; }
         if (d.kind === 'ack') {
           addAck(text);
-          if (state.buffered > 0) revealOne();
+          if (state.buffered > 0 && !state.live.el && !state.play.active) playNext();
           else state.pending = true;
           return;
         }
         if (state.turnId !== d.turnId) {
+          if (state.play.active) finishPlay();
+          clearTimeout(state.play.timer);
+          closeStream();
           state.turnId = d.turnId;
           state.streaming = true;
           state.bubble = null;
           state.pending = false;
           state.revealed = 0;
           state.buffered = 0;
+          state.live = { text: '', el: null, final: true, renderQueued: false };
+          state.play.tps = null;
+          state.play.active = false;
+          syncCaret();
           startPolling();
+          openStream(d.turnId);
         }
         addUser(d.content || text, myQuote);
         state.visible.push({ role: 'user', content: d.content || text });
