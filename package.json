@@ -2,5 +2,5 @@
   "name": "stream-talker",
   "private": true,
   "type": "module",
-  "description": "incremental text chat with speculative continuation (one file)"
+  "description": "incremental text chat with speculative continuation"
 }

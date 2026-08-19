@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>stream talker</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#0e1013;--panel:#161a21;--ink:#e9ebf2;--muted:#98a0b3;--faint:#626a7c;
+  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.14);
+  --accent:#8b9cff;--accent2:#b48bff;--ok:#3fd68e;--scrollbar-gutter:9px;
+}
+html,body{height:100%}
+body{margin:0;color:var(--ink);font:15.5px/1.62 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden;
+background:radial-gradient(1100px 460px at 50% -200px,rgba(124,140,255,.14),transparent 65%),radial-gradient(800px 480px at 90% 115%,rgba(180,139,255,.07),transparent 60%),var(--bg)}
+::selection{background:rgba(139,156,255,.3)}
+.app{height:100%;max-width:780px;min-width:0;margin:auto;display:flex;flex-direction:column;padding:0 18px}
+header{height:60px;display:flex;align-items:center;gap:10px;flex:none}
+.brand{font-weight:750;font-size:17px;letter-spacing:-.01em}
+.brand b{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.experiment-nav{display:flex;align-items:center;gap:5px;margin-left:4px}.experiment-nav a{color:var(--faint);font-size:11px;text-decoration:none;padding:4px 6px;border-radius:6px}.experiment-nav a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.mode-toggle{display:flex;align-items:center;gap:5px;color:var(--faint);font-size:11px;line-height:1;white-space:nowrap;cursor:pointer}.mode-toggle input{width:12px;height:12px;margin:0;accent-color:var(--accent);cursor:pointer}.mode-toggle input:checked+span{color:var(--accent)}
+.badge{font:600 10px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(139,156,255,.35);border-radius:999px;padding:4px 8px}
+#status{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03);padding:5px 11px;border-radius:999px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.dot.live{background:var(--accent);box-shadow:0 0 0 0 rgba(139,156,255,.55);animation:pulse 1.4s ease-out infinite}
+.dot.ok{background:var(--ok)}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(139,156,255,0)}100%{box-shadow:0 0 0 0 rgba(139,156,255,0)}}
+main{flex:1;min-width:0;overflow-y:scroll;overflow-x:hidden;padding:26px 2px 18px;scroll-behavior:smooth;display:flex;flex-direction:column;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+main::-webkit-scrollbar{width:9px}
+main::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px;border:2px solid var(--bg)}
+.empty{margin:auto;text-align:center;color:var(--faint);max-width:320px;animation:rise .4s ease both}
+.empty .mark{font-size:26px;color:var(--accent);display:block;margin-bottom:10px}
+.empty p{font-size:13.5px;line-height:1.6;margin:0}
+.row{display:flex;width:100%;min-width:0;margin:0 0 14px;animation:rise .3s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}}
+.row.user,.row.ack{justify-content:flex-end}
+.row.assistant{align-items:flex-start;gap:12px;margin-bottom:4px}
+.row.assistant.continuation{margin-top:16px}
+.avatar{width:27px;height:27px;flex:none;margin-top:2px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(139,156,255,.24),rgba(180,139,255,.16));border:1px solid rgba(139,156,255,.3);color:var(--accent);font-size:13px}
+.row.assistant.continuation .avatar{visibility:hidden}
+.msg{max-width:80%;min-width:0;border-radius:19px;padding:10px 15px;overflow-wrap:anywhere;word-break:break-word}
+.row.user .msg{background:linear-gradient(160deg,#3a4772,#2b3556);border:1px solid rgba(139,156,255,.22);border-bottom-right-radius:7px;box-shadow:0 4px 14px rgba(8,10,18,.35)}
+.row.ack{margin:-4px 0 12px}
+.row.ack .msg{padding:4px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--muted);font-size:13px;border-radius:999px}
+.row.assistant{min-width:0}.row.assistant .msg{max-width:100%;flex:1;min-width:0;padding:2px 0;background:none;border:none;border-radius:0}
+.msg p{margin:.55em 0}.msg p:first-child{margin-top:0}.msg p:last-child{margin-bottom:0}
+.msg hr{border:0;border-top:1px solid var(--line2);margin:1em 0}
+.msg h1,.msg h2,.msg h3{line-height:1.3;margin:.7em 0 .35em;font-weight:700}
+.msg h1{font-size:1.3em}.msg h2{font-size:1.18em}.msg h3{font-size:1.06em}
+.msg ul,.msg ol{margin:.45em 0;padding-left:1.4em}
+.msg li{margin:.18em 0}
+.msg pre{max-width:100%;overflow:hidden;background:#0a0d13;border:1px solid var(--line);padding:12px 14px;border-radius:12px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;margin:.6em 0}
+.msg code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:rgba(139,156,255,.12);padding:.12em .35em;border-radius:5px}
+.msg pre code{background:none;padding:0}
+.msg a{color:var(--accent)}
+.caret{display:inline-block;width:8px;height:16px;margin-left:3px;vertical-align:-3px;border-radius:3px;background:var(--accent);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:8px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:tp 1.1s ease-in-out infinite;opacity:.4}
+.typing i:nth-child(2){animation-delay:.15s}
+.typing i:nth-child(3){animation-delay:.3s}
+@keyframes tp{30%{transform:translateY(-4px);opacity:1}60%,100%{transform:none;opacity:.4}}
+footer{flex:none;padding:4px var(--scrollbar-gutter) max(16px,env(safe-area-inset-bottom)) 0}
+.actions{height:42px;display:flex;justify-content:center;align-items:center}
+#continue{display:flex;align-items:center;justify-content:center;gap:9px;min-width:116px;border:1px solid var(--line2);background:rgba(27,32,42,.92);color:var(--ink);border-radius:999px;padding:9px 17px;cursor:pointer;font:600 13px/1 inherit;box-shadow:0 8px 22px rgba(0,0,0,.4);opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease,border-color .15s}
+#continue.on{opacity:1;pointer-events:auto;transform:none}
+#continue:hover{border-color:var(--accent)}
+#continue.on:disabled{opacity:.55;cursor:default}
+.continue-label{position:relative;display:inline-grid;min-width:58px;line-height:1}
+.continue-label-text{grid-area:1/1;transition:opacity .16s ease,transform .16s ease}
+.continue-label-catchup{opacity:0;transform:translateY(3px)}
+.continue-label-pending{opacity:0;transform:translateY(3px)}
+#continue.catch-up .continue-label-continue{opacity:0;transform:translateY(-3px)}
+#continue.catch-up .continue-label-catchup{opacity:1;transform:none}
+#continue.pending .continue-label-continue,#continue.pending .continue-label-catchup{opacity:0;transform:translateY(-3px)}
+#continue.pending .continue-label-pending{opacity:1;transform:none}
+#continue kbd{font:600 10px/1 ui-monospace,monospace;color:var(--muted);border:1px solid var(--line2);border-radius:5px;padding:3px 5px}
+.composer{display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line2);border-radius:23px;padding:8px 8px 8px 17px;transition:border-color .15s,box-shadow .15s}
+.composer:focus-within{border-color:rgba(139,156,255,.55);box-shadow:0 0 0 3px rgba(139,156,255,.13)}
+textarea{flex:1;min-width:0;resize:none;max-height:150px;min-height:26px;padding:5px 0;border:none;outline:none;background:none;color:var(--ink);font:inherit}
+textarea::placeholder{color:var(--faint)}
+#send{width:38px;height:38px;flex:none;border:none;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#10121a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:filter .15s,transform .1s}
+#send:hover{filter:brightness(1.12)}
+#send:active{transform:scale(.93)}
+.hint{color:var(--faint);font-size:11px;margin-top:9px;text-align:center}
+@media(max-width:600px){.app{padding:0 12px}.msg{max-width:88%}.experiment-nav,.mode-toggle{display:none}.hint{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">stream<b>talker</b></div><nav class="experiment-nav"><a href="/annotation">annotate</a><a href="/mixed">mixed</a></nav><label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label><div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div></header>
+<main id="chat"><div class="empty" id="empty"><span class="mark">✦</span><p>Say hi — the first chunk streams live, the rest waits in the speculative buffer until you ask for it.</p></div></main>
+<footer>
+  <div class="actions"><button id="continue"><span id="continuetext" class="continue-label"><span class="continue-label-text continue-label-continue">Continue</span><span class="continue-label-text continue-label-catchup">Catch up</span><span class="continue-label-text continue-label-pending">Continuing…</span></span><kbd>⏎</kbd></button></div>
+  <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…"></textarea><button id="send" title="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
+  <div class="hint">Enter sends · empty Enter catches up / continues · short acknowledgements keep the speculative draft</div>
+</footer>
+</div>
+<script>
+// ---- demo mock: intercepts fetch so this page runs standalone, no server/API key ----
+if(location.protocol==='file:'||new URLSearchParams(location.search).has('demo'))(function(){
+  var REPLIES=[
+    'Hey! Great to meet you.\n\nThis build is running against a mock backend, so no API key is needed — the first paragraph streams live, while the rest is drafted into the hidden buffer.\n\nPress Continue (or Enter on an empty box) whenever you want the next piece.',
+    'Exactly — that one replayed from the buffer at the model\'s own pace instead of dumping the whole paragraph at once.\n\nShort reactions like "yeah" or "lol" keep the same turn alive.\n\nA real message starts a fresh turn and drops whatever was still hidden.',
+    'That\'s the whole loop: live first chunk, speculative buffer behind it, and only what you actually saw is ever sent back as context.\n\nWant to watch buffering again? Just ask me something else.'
+  ];
+  var turnCount=0, active=null;
+  var enc=new TextEncoder();
+
+  function mockTurn(reply){
+    var chunks=reply.split(/\n\n+/),timers=[],closed=false;
+    var buffered=0,nextToReveal=1,generated=1,done=false,pending=false,c=null;
+    function later(fn,ms){timers.push(setTimeout(function(){if(!closed)fn();},ms));}
+    function emit(obj){if(closed)return;try{c.enqueue(enc.encode('data: '+JSON.stringify(obj)+'\n\n'));}catch(e){closed=true;}}
+    function state(generating,waiting){emit({type:'state',status:generating?'streaming':'generated',hidden:buffered,generating:generating,waiting:!!waiting,cps:170});}
+    function finishIfDone(){if(done&&buffered===0&&!pending){emit({type:'turn_end',status:'done'});closed=true;try{c.close();}catch(e){}}}
+    function reveal(){
+      if(nextToReveal<generated){
+        if(buffered>0)buffered--;
+        var i=nextToReveal++;
+        emit({type:'chunk_open',index:i,initial:chunks[i],replay:true,cps:170});
+        emit({type:'chunk_end',index:i});
+        state(!done);
+        finishIfDone();
+        return {ok:true,index:i,replay:true};
+      }
+      if(!done){pending=true;state(true,true);return {ok:true,waiting:true};}
+      finishIfDone();
+      return {ok:true,done:true};
+    }
+    function genRest(){
+      if(generated>=chunks.length){done=true;emit({type:'generation_end',hidden:buffered,cps:170});finishIfDone();return;}
+      generated++;
+      if(pending){pending=false;reveal();}
+      else{buffered++;state(true);}
+      later(genRest,1100);
+    }
+    function start(controller){
+      c=controller;
+      emit({type:'turn',turnId:'demo'+turnCount});
+      emit({type:'state',status:'starting',hidden:0,generating:true,waiting:false});
+      emit({type:'chunk_open',index:0,initial:'',cps:170});
+      var parts=chunks[0].split(/(\s+)/),p=0;
+      (function step(){
+        if(closed)return;
+        if(p>=parts.length){emit({type:'chunk_end',index:0});state(true);later(genRest,700);return;}
+        var frag=parts[p]+(parts[p+1]||'');p+=2;
+        emit({type:'delta',index:0,t:frag,cps:170});
+        later(step,24);
+      })();
+    }
+    return {start:start,reveal:function(){return reveal();},cancel:function(){closed=true;timers.forEach(clearTimeout);}};
+  }
+
+  function jsonResponse(obj){return new Response(JSON.stringify(obj),{status:200,headers:{'content-type':'application/json'}});}
+
+  window.fetch=function(url,opt){
+    opt=opt||{};url=String(url);
+    if(url.indexOf('/api/stream')===0){
+      if(active)active.cancel();
+      var reply=REPLIES[Math.min(turnCount,REPLIES.length-1)];turnCount++;
+      var turn=mockTurn(reply);
+      var stream=new ReadableStream({start:function(c){turn.start(c);},cancel:function(){turn.cancel();}});
+      active=turn;
+      if(opt.signal)opt.signal.addEventListener('abort',function(){turn.cancel();});
+      return Promise.resolve(new Response(stream,{status:200,headers:{'content-type':'text/event-stream'}}));
+    }
+    if(/\/api\/turns\/[\w-]+\/continue$/.test(url))return Promise.resolve(jsonResponse(active?active.reveal():{error:'no such turn'}));
+    if(/\/api\/turns\/[\w-]+\/cancel$/.test(url)){if(active)active.cancel();return Promise.resolve(jsonResponse({ok:true}));}
+    if(/\/api\/turns\/[\w-]+$/.test(url))return Promise.resolve(jsonResponse({status:'streaming'}));
+    return Promise.reject(new Error('demo mock: no route for '+url));
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){
+    var b=document.createElement('span');b.className='badge';b.textContent='demo · mocked backend';
+    document.querySelector('header').insertBefore(b,document.getElementById('status'));
+  });
+})();
+</script>
+<script>
+(function(){
+'use strict';
+var chat=document.getElementById('chat'),input=document.getElementById('input'),sendBtn=document.getElementById('send'),guidedInput=document.getElementById('guided');
+var continueBtn=document.getElementById('continue'),dot=document.getElementById('dot'),statusText=document.getElementById('statustext');
+
+var ACKS=new Set(('yeah yep yup yea yes yesss ok okay k kk sure right exactly indeed true fair gotcha lol lmao haha hahaha ha hehe nice cool wow whoa ooh aah dope sick awesome noice thanks thx oh ah hm mm mhm mhmm uhuh interesting aight bet').split(' '));
+function isAck(text){
+  var t=text.trim().toLowerCase().replace(/[.,!?;:'"()\[\]{}]+/g,' ').replace(/\s+/g,' ').trim();
+  if(!t)return false;
+  if(ACKS.has(t))return true;
+  if(/^(i see|got it|makes sense|that makes sense|fair enough|sounds good|oh+ (ok|okay|yeah)|yeah+|yep+|ok+|ha+|lol+|lmao+)$/.test(t))return true;
+  var words=t.split(' ');return words.length<=3&&words.every(function(w){return ACKS.has(w);});
+}
+
+var state={
+  turnId:null,
+  timeline:[],
+  streamCtrl:null,
+  generating:false,
+  continuePending:false,
+  hidden:0,
+  current:null,
+  lastAssistant:false,
+  cps:0,
+  sessionId:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
+  sessionSeq:0,
+  turnEnded:false,
+  guided:false,
+};
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function md(s){
+  if(!s)return '';
+  var h=esc(s),blocks=[];
+  h=h.replace(/```([\s\S]*?)```/g,function(_,c){blocks.push('<pre><code>'+c.replace(/\n$/,'')+'</code></pre>');return '\u0001'+(blocks.length-1)+'\u0001';});
+  h=h.replace(/^###\s+(.+)$/gm,'<h3>$1</h3>').replace(/^##\s+(.+)$/gm,'<h2>$1</h2>').replace(/^#\s+(.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+  h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  var lines=h.split('\n'),out=[],list=null,para=[];
+  function flushPara(){if(para.length){out.push('<p>'+para.join('<br>')+'</p>');para=[];}}
+  function flushList(){if(list){out.push('</'+list+'>');list=null;}}
+  lines.forEach(function(line){
+    var hr=line.match(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/);
+    var u=line.match(/^\s*[-*+]\s+(.+)$/),o=line.match(/^\s*\d+\.\s+(.+)$/);
+    if(hr){flushPara();flushList();out.push('<hr>');return;}
+    if(u){flushPara();if(list!=='ul'){flushList();out.push('<ul>');list='ul';}out.push('<li>'+u[1]+'</li>');return;}
+    if(o){flushPara();if(list!=='ol'){flushList();out.push('<ol>');list='ol';}out.push('<li>'+o[1]+'</li>');return;}
+    flushList();
+    if(/^\s*<(h\d|pre)/.test(line)||/^\u0001\d+\u0001$/.test(line)){flushPara();out.push(line);return;}
+    if(!line.trim()){flushPara();return;}
+    para.push(line);
+  });
+  flushList();flushPara();
+  h=out.join('\n').replace(/\u0001(\d+)\u0001/g,function(_,i){return blocks[+i];});
+  return h;
+}
+
+function scrollDown(){chat.scrollTop=chat.scrollHeight;}
+function setStatus(text,live){statusText.textContent=text;dot.className='dot'+(live?' live':(text==='complete'?' ok':''));}
+function row(role,text,ack){
+  var e=document.getElementById('empty');if(e)e.remove();
+  var r=document.createElement('div');r.className='row '+(ack?'ack':role);
+  if(role==='assistant'&&!ack){var av=document.createElement('div');av.className='avatar';av.textContent='✦';r.appendChild(av);}
+  var m=document.createElement('div');m.className='msg';m.innerHTML=md(text||'');r.appendChild(m);chat.appendChild(r);scrollDown();return {row:r,msg:m};
+}
+function addTimeline(role,content){if(content)state.timeline.push({role:role,content:content});}
+function addUser(text,ack){row('user',text,ack);addTimeline('user',text);state.lastAssistant=false;}
+
+function newAssistantSegment(){
+  var r=row('assistant','',false);if(state.lastAssistant)r.row.classList.add('continuation');
+  state.lastAssistant=true;return r;
+}
+function ensureCurrentElement(){
+  var c=state.current;if(!c)return null;
+  if(!c.node)c.node=newAssistantSegment();return c.node.msg;
+}
+function renderCurrent(){
+  var c=state.current;if(!c||!c.node)return;
+  var local=c.rendered.slice(c.segmentStart);
+  var tail='';
+  if(!c.finalized)tail=local?'<span class="caret"></span>':'<span class="typing"><i></i><i></i><i></i></span>';
+  c.node.msg.innerHTML=md(local)+tail;scrollDown();
+}
+function commitRenderedPrefix(){
+  var c=state.current;if(!c)return;
+  var local=c.rendered.slice(c.segmentStart);
+  if(local){
+    ensureCurrentElement();
+    c.node.msg.innerHTML=md(local);
+    addTimeline('assistant',local);
+    c.segmentStart=c.rendered.length;
+    c.node=null;
+  }else if(c.node){
+    c.node.row.remove();
+    c.node=null;
+  }
+}
+
+function stopReplay(){
+  var c=state.current;if(c&&c.raf){cancelAnimationFrame(c.raf);c.raf=0;}
+}
+function replayFrame(ts){
+  var c=state.current;if(!c||!c.replaying)return;
+  if(!c.replayStartAt){c.replayStartAt=ts;c.replayBaseLen=c.rendered.length;}
+  var cps=c.replayCps||state.cps||180;
+  var want=Math.min(c.target.length,c.replayBaseLen+Math.floor(cps*(ts-c.replayStartAt)/1000));
+  if(want>c.rendered.length){c.rendered=c.target.slice(0,want);ensureCurrentElement();renderCurrent();}
+  if(c.rendered.length>=c.target.length){
+    // Once replay reaches the provider's current frontier, this chunk follows
+    // new deltas live. A still-generating chunk never gets a second hidden
+    // phase after the user has chosen to reveal it.
+    c.replaying=false;c.replayStartAt=0;c.replayBaseLen=c.rendered.length;
+    if(c.ended)finishCurrentChunk();
+    return;
+  }
+  c.raf=requestAnimationFrame(replayFrame);
+}
+function startReplay(){
+  var c=state.current;if(!c||c.replaying)return;
+  c.replaying=true;c.replayStartAt=0;c.replayBaseLen=c.rendered.length;c.replayCps=state.cps||c.replayCps||180;
+  c.raf=requestAnimationFrame(replayFrame);
+}
+
+// Enter while cached text is being animated means: catch the renderer up to
+// the speculative buffer frontier NOW. If the whole chunk is already buffered
+// this completes it instantly; if generation is still extending the chunk,
+// future upstream deltas continue live from this exact point.
+function catchUpCurrent(){
+  var c=state.current;if(!c)return false;
+  if(c.rendered.length>=c.target.length&&!c.replaying)return false;
+  stopReplay();c.replaying=false;c.replayStartAt=0;c.replayBaseLen=c.target.length;
+  c.rendered=c.target;ensureCurrentElement();renderCurrent();
+  if(c.ended)finishCurrentChunk();
+  else updateContinue();
+  return true;
+}
+function finishCurrentChunk(){
+  var c=state.current;if(!c||c.finalized||c.rendered.length<c.target.length)return;
+  c.finalized=true;stopReplay();
+  var local=c.rendered.slice(c.segmentStart);
+  if(local){ensureCurrentElement();c.node.msg.innerHTML=md(local);addTimeline('assistant',local);}
+  else if(c.node)c.node.row.remove();
+  state.current=null;state.lastAssistant=true;scrollDown();
+  if(state.turnEnded&&state.hidden===0)setStatus('complete',false);
+  updateContinue();
+}
+function abandonCurrent(){
+  var c=state.current;if(!c)return;
+  stopReplay();commitRenderedPrefix();
+  if(c.node)c.node.row.remove();
+  state.current=null;
+}
+
+function onChunkOpen(d){
+  // A previous chunk should normally have ended first; tolerate provider/UI races.
+  if(state.current&&state.current.index!==d.index){finishCurrentChunk();}
+  if(Number(d.cps)>0)state.cps=Number(d.cps);
+  var initial=String(d.initial||'');
+  state.current={index:d.index,target:initial,rendered:'',segmentStart:0,node:null,ended:false,finalized:false,replaying:false,raf:0,replayStartAt:0,replayBaseLen:0,replayCps:state.cps||180,paint:0};
+  state.continuePending=false;updateContinue();
+  ensureCurrentElement();
+  if(initial)startReplay();
+  else renderCurrent();
+}
+function onDelta(d){
+  var c=state.current;
+  if(!c||c.index!==d.index){onChunkOpen({index:d.index,initial:'',cps:d.cps});c=state.current;}
+  if(Number(d.cps)>0)state.cps=Number(d.cps);
+  var frag=String(d.t||'');c.target+=frag;
+  if(c.replaying){return;}
+  // Live upstream fragment: render on the next paint, with no artificial delay.
+  c.rendered=c.target;ensureCurrentElement();
+  if(!c.paint){c.paint=requestAnimationFrame(function(){if(state.current===c){c.paint=0;renderCurrent();}});}
+}
+function onChunkEnd(d){
+  var c=state.current;if(!c||c.index!==d.index)return;c.ended=true;
+  if(c.replaying||c.rendered.length<c.target.length){startReplay();return;}finishCurrentChunk();
+}
+
+function updateContinue(){
+  var c=state.current,behind=!!(c&&c.rendered.length<c.target.length);
+  // Continue means "there is another readable frontier", not "the model is
+  // still working". TTFT, the live first chunk, and gaps between chunks stay
+  // quiet; the button appears when a later chunk has produced text.
+  var canContinue=!state.turnEnded&&state.hidden>0;
+  var show=!!state.turnId&&(behind||canContinue);
+  continueBtn.classList.toggle('on',show);
+  continueBtn.classList.toggle('catch-up',behind);
+  continueBtn.classList.toggle('pending',state.continuePending&&!behind);
+  continueBtn.disabled=!show;
+}
+
+function handleEvent(d){
+  if(d.type==='turn'){
+    state.turnId=d.turnId;state.generating=true;state.turnEnded=false;setStatus('generating…',true);return;
+  }
+  if(d.type==='chunk_open'){onChunkOpen(d);return;}
+  if(d.type==='delta'){onDelta(d);return;}
+  if(d.type==='chunk_end'){onChunkEnd(d);return;}
+  if(d.type==='state'){
+    state.generating=!!d.generating;state.hidden=Number(d.hidden||0);state.continuePending=!!d.waiting;if(Number(d.cps)>0)state.cps=Number(d.cps);
+    if(state.generating)setStatus(state.hidden?'generating · '+state.hidden+' buffered':'generating…',true);
+    else if(state.hidden)setStatus(state.hidden+' buffered',false);
+    updateContinue();return;
+  }
+  if(d.type==='generation_end'){
+    state.generating=false;state.hidden=Number(d.hidden||0);if(Number(d.cps)>0)state.cps=Number(d.cps);
+    setStatus(state.hidden?state.hidden+' buffered':'complete',false);updateContinue();return;
+  }
+  if(d.type==='turn_end'){
+    state.generating=false;state.continuePending=false;state.turnEnded=d.status==='done';
+    if(d.status==='error')setStatus('error: '+(d.error||'generation failed'),false);
+    else if(d.status==='superseded'){} else if(!state.current)setStatus('complete',false);
+    updateContinue();return;
+  }
+}
+
+function consumeSse(response,ctrl){
+  if(!response.ok||!response.body)throw new Error('stream HTTP '+response.status);
+  var reader=response.body.getReader(),dec=new TextDecoder(),buf='';
+  function pump(){return reader.read().then(function(x){
+    if(x.done)return;
+    buf+=dec.decode(x.value,{stream:true});
+    var split;
+    while((split=buf.indexOf('\n\n'))>=0){
+      var frame=buf.slice(0,split);buf=buf.slice(split+2);
+      var data=frame.split(/\r?\n/).filter(function(l){return l.indexOf('data:')===0;}).map(function(l){return l.slice(5).replace(/^ /,'');}).join('\n');
+      if(data){try{handleEvent(JSON.parse(data));}catch(_){}}
+    }
+    return pump();
+  });}
+  return pump();
+}
+
+function startInference(supersedeId){
+  if(state.streamCtrl){try{state.streamCtrl.abort();}catch(_){}}
+  var ctrl=new AbortController();state.streamCtrl=ctrl;
+  state.turnId=null;state.generating=true;state.hidden=0;state.continuePending=false;state.lastAssistant=false;state.turnEnded=false;updateContinue();setStatus('connecting…',true);
+  state.sessionSeq++;
+  fetch('/api/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({history:state.timeline,presentation:'speculative',guided:state.guided,supersede:supersedeId||null,sessionId:state.sessionId,sessionSeq:state.sessionSeq}),signal:ctrl.signal})
+    .then(function(r){return consumeSse(r,ctrl);})
+    .catch(function(e){if(ctrl.signal.aborted)return;setStatus('request failed: '+e.message,false);state.generating=false;updateContinue();});
+}
+
+function requestContinue(){
+  if(!state.turnId||state.continuePending)return;
+  state.continuePending=true;updateContinue();
+  fetch('/api/turns/'+state.turnId+'/continue',{method:'POST'})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.error){state.continuePending=false;updateContinue();setStatus('continue failed: '+d.error,false);return;}
+      state.continuePending=!!d.waiting;updateContinue();
+    }).catch(function(e){state.continuePending=false;updateContinue();setStatus('continue failed: '+e.message,false);});
+}
+function doContinue(){
+  if(!state.turnId)return;
+  // First Enter is always a local catch-up if the renderer is behind the
+  // already-generated buffer. It never waits for the typing animation.
+  if(catchUpCurrent())return;
+  requestContinue();
+}
+
+function sendText(text){
+  text=text.trim();if(!text)return doContinue();
+  var ack=isAck(text)&&!!state.turnId&&!state.turnEnded;
+
+  // Freeze exactly what has reached the screen before recording the user's
+  // reaction. Anything generated but not rendered stays out of timeline.
+  if(state.current)commitRenderedPrefix();
+  addUser(text,ack);
+  input.value='';input.style.height='auto';
+
+  if(ack){
+    // Same inference continues. New assistant text, even from the same semantic
+    // chunk, gets a new bubble after the ACK so the reaction stays localized.
+    if(state.current){state.current.node=null;state.current.segmentStart=state.current.rendered.length;}
+    if(state.hidden>0||state.generating)doContinue();
+    return;
+  }
+
+  var old=state.turnId;
+  abandonCurrent();
+  if(state.streamCtrl){try{state.streamCtrl.abort();}catch(_){}}
+  startInference(old);
+}
+
+continueBtn.addEventListener('click',doContinue);
+guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;});
+sendBtn.addEventListener('click',function(){sendText(input.value);});
+input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
+input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,150)+'px';});
+input.focus();
+})();
+</script>
+</body>
+</html>

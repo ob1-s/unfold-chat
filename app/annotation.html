@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>stream talker · annotation</title>
+<link rel="stylesheet" href="/app/experiments.css">
+</head>
+<body data-experiment="annotation">
+<div class="experiment-app">
+  <header>
+    <div class="brand">stream<b>talker</b></div>
+    <span class="experiment-badge">annotation only</span>
+    <nav class="experiment-nav"><a href="/">v1</a><a href="/mixed">mixed</a></nav>
+    <label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label>
+    <div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div>
+  </header>
+
+  <main id="chat">
+    <div class="empty" id="empty">
+      <span class="mark">✦</span>
+      <p>Read the whole answer, highlight anything, and leave several notes before asking for a response.</p>
+    </div>
+  </main>
+
+  <aside class="annotation-dock">
+  <section class="annotation-panel" id="annotation-panel" hidden>
+    <div class="annotation-panel-head">
+      <span><b id="annotation-count">0</b> annotations</span>
+      <button id="respond" type="button">Respond to annotations</button>
+    </div>
+    <div class="annotation-list" id="annotation-list"></div>
+  </section>
+
+  <section class="selection-tray" id="selection-tray" hidden>
+    <div class="selection-quote" id="selection-quote"></div>
+    <textarea id="annotation-input" rows="2" placeholder="What should the assistant know about this passage?"></textarea>
+    <div class="tray-actions"><button id="cancel-selection" type="button">Cancel</button><button class="primary" id="add-annotation" type="button">Add annotation</button></div>
+  </section>
+  </aside>
+
+  <footer>
+    <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…"></textarea><button id="send" title="Send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
+    <div class="hint">Select text in an answer to annotate it · Enter sends · Shift+Enter adds a line</div>
+  </footer>
+</div>
+<script src="/app/experiments.js"></script>
+</body>
+</html>
