@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 14 476 200" role="img" aria-labelledby="title desc">
+<title id="title">Each part waits behind the one you're reading</title>
+<desc id="desc">A stack of cards. The front card is fully visible with text. Two more cards peek out from behind it. A Continue arrow pulls the front card aside to bring the next one forward.</desc>
+
+<style>
+  .card-back { fill: #fffefb; stroke: #ddd9d0; }
+  .card-front { fill: #fffefb; stroke: #2a2823; }
+  .answer-line { fill: #2a2823; }
+  .stream-stop { stop-color: #2a2823; }
+  .continue-arrow { fill: none; stroke: #b3492f; }
+  .continue-label { fill: #b3492f; }
+
+  @media (prefers-color-scheme: dark) {
+    .card-back { fill: #111317; stroke: #4c4d4b; }
+    .card-front { fill: #17191d; stroke: #ece9e1; }
+    .answer-line { fill: #ece9e1; }
+    .stream-stop { stop-color: #ece9e1; }
+    .continue-arrow { stroke: #d06a48; }
+    .continue-label { fill: #d06a48; }
+  }
+
+  .card { stroke-width: 1.2; }
+  .card-front { stroke-width: 1.4; }
+</style>
+
+<defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto">
+    <path class="continue-arrow" d="M0 0 L8 4 L0 8" stroke-width="1.4"/>
+  </marker>
+
+  <linearGradient id="streamFade" x1="0" y1="0" x2="1" y2="0">
+    <stop class="stream-stop" offset="0%"/>
+    <stop class="stream-stop" offset="72%"/>
+    <stop class="stream-stop" offset="100%" stop-opacity="0"/>
+  </linearGradient>
+</defs>
+
+<rect class="card card-back" x="62" y="46" width="340" height="158" rx="8"/>
+<rect class="card card-back" x="51" y="35" width="340" height="158" rx="8"/>
+<rect class="card card-front" x="40" y="24" width="340" height="158" rx="8"/>
+
+<rect class="answer-line" x="64" y="48.0" width="292.0" height="6" rx="1.4"/>
+<rect class="answer-line" x="64" y="67.0" width="268.6" height="6" rx="1.4"/>
+<rect class="answer-line" x="64" y="86.0" width="283.2" height="6" rx="1.4"/>
+<rect class="answer-line" x="64" y="105.0" width="252.0" height="6" rx="1.4"/>
+<rect x="64" y="124.0" width="146.0" height="6" rx="1.4" fill="url(#streamFade)"/>
+
+<path class="continue-arrow" d="M386 152 C 430 172 430 84 414 54" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text class="continue-label" x="424" y="58" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="13" font-weight="700">Continue</text>
+</svg>
