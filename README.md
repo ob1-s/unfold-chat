@@ -32,6 +32,7 @@ The root page (`/`) is the original speculative-continuation version.
   multiple notes, and respond to the annotations instead of copypasting quotes
   into the composer.
 - `/mixed` — speculative continuation plus annotations on the visible frontier.
+- `/trajectories` — replay a real agent trace, then compare a standard answer with Unfold v1.
 
 ## A deliberate constraint
 

@@ -90,7 +90,7 @@ textarea::placeholder{color:var(--faint)}
 </head>
 <body>
 <div class="app">
-<header><div class="brand">stream<b>talker</b></div><nav class="experiment-nav"><a href="/annotation">annotate</a><a href="/mixed">mixed</a></nav><label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label><div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div></header>
+<header><div class="brand">stream<b>talker</b></div><nav class="experiment-nav"><a href="/annotation">annotate</a><a href="/mixed">mixed</a><a href="/trajectories">replay</a></nav><label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label><div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div></header>
 <main id="chat"><div class="empty" id="empty"><span class="mark">✦</span><p>Say hi — the first chunk streams live, the rest waits in the speculative buffer until you ask for it.</p></div></main>
 <footer>
   <div class="actions"><button id="continue"><span id="continuetext" class="continue-label"><span class="continue-label-text continue-label-continue">Continue</span><span class="continue-label-text continue-label-catchup">Catch up</span><span class="continue-label-text continue-label-pending">Continuing…</span></span><kbd>⏎</kbd></button></div>

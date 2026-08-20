@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>stream talker · trajectory replay</title>
+<link rel="stylesheet" href="/app/experiments.css">
+<link rel="stylesheet" href="/app/trajectories.css">
+</head>
+<body data-experiment="trajectory">
+<div class="experiment-app trajectory-app">
+  <header>
+    <div class="brand">stream<b>talker</b></div>
+    <span class="experiment-badge trajectory-badge">trajectory replay</span>
+    <nav class="experiment-nav"><a href="/">v1</a><a href="/annotation">annotate</a><a href="/mixed">mixed</a></nav>
+    <div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div>
+  </header>
+
+  <main id="replay">
+    <section class="replay-intro">
+      <div class="replay-eyebrow">A real agent trace · final-answer boundary</div>
+      <h1 id="trajectory-title">Trajectory replay</h1>
+      <p>Watch the visible shape of an agent work through a question, then compare a normal final answer with the same answer unfolding one section at a time.</p>
+      <div class="trace-meta">
+        <a id="source-link" href="#" target="_blank" rel="noopener">dFusion sample</a>
+        <span>·</span>
+        <span id="trace-model">gpt-4o-mini</span>
+        <span>·</span>
+        <span id="trace-stats">5 tool calls · 2,749 answer characters</span>
+      </div>
+    </section>
+
+    <section class="prompt-row" aria-label="User prompt">
+      <div class="prompt-bubble" id="prompt"></div>
+    </section>
+
+    <section class="replay-toolbar" aria-label="Replay controls">
+      <div class="mode-control">
+        <span class="control-label">Final answer</span>
+        <div class="mode-switch" role="tablist" aria-label="Final answer mode">
+          <button type="button" class="mode-button" data-mode="standard" role="tab">Standard</button>
+          <button type="button" class="mode-button" data-mode="unfold" role="tab">Unfold v1</button>
+        </div>
+      </div>
+      <div class="replay-actions">
+        <span class="mode-note" id="mode-note">One normal answer stream</span>
+        <button type="button" class="replay-button" id="play">Play replay</button>
+      </div>
+    </section>
+
+    <section class="trace-section" aria-label="Agent trajectory">
+      <div class="section-heading">
+        <div><span class="section-kicker">Visible trajectory</span><span class="section-title">work before the answer</span></div>
+        <span class="trace-count" id="trace-count">5 tool calls</span>
+      </div>
+      <div class="timeline" id="timeline">
+        <div class="trace-placeholder" id="trace-placeholder">
+          <span class="placeholder-mark">↳</span>
+          <span>Press play to replay the prompt → agent work → final answer boundary.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-section" id="final-section" hidden aria-label="Final user-facing answer">
+      <div class="section-heading final-heading">
+        <div><span class="section-kicker">User-facing answer</span><span class="section-title">this is where Unfold starts</span></div>
+        <span class="answer-state" id="answer-state">waiting</span>
+      </div>
+      <div class="answer-stream" id="answer-stream"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="actions"><button id="continue" type="button"><span class="continue-label"><span class="continue-label-text continue-label-continue">Continue</span><span class="continue-label-text continue-label-catchup">Catch up</span><span class="continue-label-text continue-label-pending">Continuing…</span></span><kbd>⏎</kbd></button></div>
+    <div class="composer replay-composer">
+      <div class="replay-composer-copy"><span>Replay only</span><small id="composer-note">Choose a mode above and play the trace.</small></div>
+      <button type="button" class="replay-round" id="footer-play" title="Play replay" aria-label="Play replay">↻</button>
+    </div>
+    <div class="hint">Tool details stay folded · preambles fold when the final answer begins · Continue reveals · Catch up follows live generation</div>
+  </footer>
+</div>
+<script src="/app/trajectories-data.js"></script>
+<script src="/app/trajectories.js"></script>
+</body>
+</html>

@@ -17,6 +17,10 @@ const ANNOTATION_PAGE = readFileSync(new URL('./app/annotation.html', import.met
 const MIXED_PAGE = readFileSync(new URL('./app/mixed.html', import.meta.url), 'utf8');
 const EXPERIMENTS_CSS = readFileSync(new URL('./app/experiments.css', import.meta.url), 'utf8');
 const EXPERIMENTS_JS = readFileSync(new URL('./app/experiments.js', import.meta.url), 'utf8');
+const TRAJECTORIES_PAGE = readFileSync(new URL('./app/trajectories.html', import.meta.url), 'utf8');
+const TRAJECTORIES_CSS = readFileSync(new URL('./app/trajectories.css', import.meta.url), 'utf8');
+const TRAJECTORIES_DATA = readFileSync(new URL('./app/trajectories-data.js', import.meta.url), 'utf8');
+const TRAJECTORIES_JS = readFileSync(new URL('./app/trajectories.js', import.meta.url), 'utf8');
 
 const defaults = {
   model: 'gpt-4o-mini',
@@ -676,11 +680,23 @@ const server = createServer(async (req, res) => {
   if (req.method === 'GET' && (path === '/mixed' || path === '/mixed.html')) {
     return send(res, 200, 'text/html; charset=utf-8', MIXED_PAGE);
   }
+  if (req.method === 'GET' && (path === '/trajectories' || path === '/trajectories.html')) {
+    return send(res, 200, 'text/html; charset=utf-8', TRAJECTORIES_PAGE);
+  }
   if (req.method === 'GET' && path === '/app/experiments.css') {
     return send(res, 200, 'text/css; charset=utf-8', EXPERIMENTS_CSS);
   }
   if (req.method === 'GET' && path === '/app/experiments.js') {
     return send(res, 200, 'text/javascript; charset=utf-8', EXPERIMENTS_JS);
+  }
+  if (req.method === 'GET' && path === '/app/trajectories.css') {
+    return send(res, 200, 'text/css; charset=utf-8', TRAJECTORIES_CSS);
+  }
+  if (req.method === 'GET' && path === '/app/trajectories-data.js') {
+    return send(res, 200, 'text/javascript; charset=utf-8', TRAJECTORIES_DATA);
+  }
+  if (req.method === 'GET' && path === '/app/trajectories.js') {
+    return send(res, 200, 'text/javascript; charset=utf-8', TRAJECTORIES_JS);
   }
   if (req.method === 'GET' && path === '/favicon.ico') return send(res, 204, 'text/plain', '');
 
