@@ -3,98 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>stream talker</title>
-<style>
-*{box-sizing:border-box}
-:root{
-  --bg:#0e1013;--panel:#161a21;--ink:#e9ebf2;--muted:#98a0b3;--faint:#626a7c;
-  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.14);
-  --accent:#8b9cff;--accent2:#b48bff;--ok:#3fd68e;--scrollbar-gutter:9px;
-}
-html,body{height:100%}
-body{margin:0;color:var(--ink);font:15.5px/1.62 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden;
-background:radial-gradient(1100px 460px at 50% -200px,rgba(124,140,255,.14),transparent 65%),radial-gradient(800px 480px at 90% 115%,rgba(180,139,255,.07),transparent 60%),var(--bg)}
-::selection{background:rgba(139,156,255,.3)}
-.app{height:100%;max-width:780px;min-width:0;margin:auto;display:flex;flex-direction:column;padding:0 18px}
-header{height:60px;display:flex;align-items:center;gap:10px;flex:none}
-.brand{font-weight:750;font-size:17px;letter-spacing:-.01em}
-.brand b{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.experiment-nav{display:flex;align-items:center;gap:5px;margin-left:4px}.experiment-nav a{color:var(--faint);font-size:11px;text-decoration:none;padding:4px 6px;border-radius:6px}.experiment-nav a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
-.mode-toggle{display:flex;align-items:center;gap:5px;color:var(--faint);font-size:11px;line-height:1;white-space:nowrap;cursor:pointer}.mode-toggle input{width:12px;height:12px;margin:0;accent-color:var(--accent);cursor:pointer}.mode-toggle input:checked+span{color:var(--accent)}
-.badge{font:600 10px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(139,156,255,.35);border-radius:999px;padding:4px 8px}
-#status{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03);padding:5px 11px;border-radius:999px;white-space:nowrap}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
-.dot.live{background:var(--accent);box-shadow:0 0 0 0 rgba(139,156,255,.55);animation:pulse 1.4s ease-out infinite}
-.dot.ok{background:var(--ok)}
-@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(139,156,255,0)}100%{box-shadow:0 0 0 0 rgba(139,156,255,0)}}
-main{flex:1;min-width:0;overflow-y:scroll;overflow-x:hidden;padding:26px 2px 18px;scroll-behavior:smooth;display:flex;flex-direction:column;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
-main::-webkit-scrollbar{width:9px}
-main::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px;border:2px solid var(--bg)}
-.empty{margin:auto;text-align:center;color:var(--faint);max-width:320px;animation:rise .4s ease both}
-.empty .mark{font-size:26px;color:var(--accent);display:block;margin-bottom:10px}
-.empty p{font-size:13.5px;line-height:1.6;margin:0}
-.row{display:flex;width:100%;min-width:0;margin:0 0 14px;animation:rise .3s ease both}
-@keyframes rise{from{opacity:0;transform:translateY(7px)}}
-.row.user,.row.ack{justify-content:flex-end}
-.row.assistant{align-items:flex-start;gap:12px;margin-bottom:4px}
-.row.assistant.continuation{margin-top:16px}
-.avatar{width:27px;height:27px;flex:none;margin-top:2px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(139,156,255,.24),rgba(180,139,255,.16));border:1px solid rgba(139,156,255,.3);color:var(--accent);font-size:13px}
-.row.assistant.continuation .avatar{visibility:hidden}
-.msg{max-width:80%;min-width:0;border-radius:19px;padding:10px 15px;overflow-wrap:anywhere;word-break:break-word}
-.row.user .msg{background:linear-gradient(160deg,#3a4772,#2b3556);border:1px solid rgba(139,156,255,.22);border-bottom-right-radius:7px;box-shadow:0 4px 14px rgba(8,10,18,.35)}
-.row.ack{margin:-4px 0 12px}
-.row.ack .msg{padding:4px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--muted);font-size:13px;border-radius:999px}
-.row.assistant{min-width:0}.row.assistant .msg{max-width:100%;flex:1;min-width:0;padding:2px 0;background:none;border:none;border-radius:0}
-.msg p{margin:.55em 0}.msg p:first-child{margin-top:0}.msg p:last-child{margin-bottom:0}
-.msg hr{border:0;border-top:1px solid var(--line2);margin:1em 0}
-.msg h1,.msg h2,.msg h3{line-height:1.3;margin:.7em 0 .35em;font-weight:700}
-.msg h1{font-size:1.3em}.msg h2{font-size:1.18em}.msg h3{font-size:1.06em}
-.msg ul,.msg ol{margin:.45em 0;padding-left:1.4em}
-.msg li{margin:.18em 0}
-.msg pre{max-width:100%;overflow:hidden;background:#0a0d13;border:1px solid var(--line);padding:12px 14px;border-radius:12px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;margin:.6em 0}
-.msg code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:rgba(139,156,255,.12);padding:.12em .35em;border-radius:5px}
-.msg pre code{background:none;padding:0}
-.msg a{color:var(--accent)}
-.caret{display:inline-block;width:8px;height:16px;margin-left:3px;vertical-align:-3px;border-radius:3px;background:var(--accent);animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.typing{display:inline-flex;gap:4px;align-items:center;padding:8px 2px}
-.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:tp 1.1s ease-in-out infinite;opacity:.4}
-.typing i:nth-child(2){animation-delay:.15s}
-.typing i:nth-child(3){animation-delay:.3s}
-@keyframes tp{30%{transform:translateY(-4px);opacity:1}60%,100%{transform:none;opacity:.4}}
-footer{flex:none;padding:4px var(--scrollbar-gutter) max(16px,env(safe-area-inset-bottom)) 0}
-.actions{height:42px;display:flex;justify-content:center;align-items:center}
-#continue{display:flex;align-items:center;justify-content:center;gap:9px;min-width:116px;border:1px solid var(--line2);background:rgba(27,32,42,.92);color:var(--ink);border-radius:999px;padding:9px 17px;cursor:pointer;font:600 13px/1 inherit;box-shadow:0 8px 22px rgba(0,0,0,.4);opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease,border-color .15s}
-#continue.on{opacity:1;pointer-events:auto;transform:none}
-#continue:hover{border-color:var(--accent)}
-#continue.on:disabled{opacity:.55;cursor:default}
-.continue-label{position:relative;display:inline-grid;min-width:58px;line-height:1}
-.continue-label-text{grid-area:1/1;transition:opacity .16s ease,transform .16s ease}
-.continue-label-catchup{opacity:0;transform:translateY(3px)}
-.continue-label-pending{opacity:0;transform:translateY(3px)}
-#continue.catch-up .continue-label-continue{opacity:0;transform:translateY(-3px)}
-#continue.catch-up .continue-label-catchup{opacity:1;transform:none}
-#continue.pending .continue-label-continue,#continue.pending .continue-label-catchup{opacity:0;transform:translateY(-3px)}
-#continue.pending .continue-label-pending{opacity:1;transform:none}
-#continue kbd{font:600 10px/1 ui-monospace,monospace;color:var(--muted);border:1px solid var(--line2);border-radius:5px;padding:3px 5px}
-.composer{display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line2);border-radius:23px;padding:8px 8px 8px 17px;transition:border-color .15s,box-shadow .15s}
-.composer:focus-within{border-color:rgba(139,156,255,.55);box-shadow:0 0 0 3px rgba(139,156,255,.13)}
-textarea{flex:1;min-width:0;resize:none;max-height:150px;min-height:26px;padding:5px 0;border:none;outline:none;background:none;color:var(--ink);font:inherit}
-textarea::placeholder{color:var(--faint)}
-#send{width:38px;height:38px;flex:none;border:none;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#10121a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:filter .15s,transform .1s}
-#send:hover{filter:brightness(1.12)}
-#send:active{transform:scale(.93)}
-.hint{color:var(--faint);font-size:11px;margin-top:9px;text-align:center}
-@media(max-width:600px){.app{padding:0 12px}.msg{max-width:88%}.experiment-nav,.mode-toggle{display:none}.hint{display:none}}
-</style>
+<title>stream talker · speculative chat</title>
+<meta name="description" content="Read model answers as they unfold: the first section streams live, later sections wait in a speculative buffer until you continue.">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0f15'/%3E%3Cpath d='M32 11c2 13 8 19 21 21-13 2-19 8-21 21-2-13-8-19-21-21 13-2 19-8 21-21z' fill='%238f9bff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/app/theme.css">
 </head>
 <body>
 <div class="app">
-<header><div class="brand">stream<b>talker</b></div><nav class="experiment-nav"><a href="/annotation">annotate</a><a href="/mixed">mixed</a><a href="/trajectories">replay</a></nav><label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label><div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div></header>
-<main id="chat"><div class="empty" id="empty"><span class="mark">✦</span><p>Say hi — the first chunk streams live, the rest waits in the speculative buffer until you ask for it.</p></div></main>
+<header class="site-header">
+  <div class="brand"><span class="brand-mark">✦</span>stream<b>talker</b></div>
+  <nav class="header-nav seg-nav" aria-label="Experiments">
+    <a href="/" aria-current="page">v1 · speculative</a>
+    <a href="/annotation">annotate</a>
+    <a href="/mixed">mixed</a>
+    <a href="/trajectories">replay</a>
+  </nav>
+  <label class="switch guided-switch" title="Use the experimental guidance prompt and cohesive chunking">
+    <input id="guided" type="checkbox"><span>guided</span>
+  </label>
+  <div id="status" class="status-pill"><span class="dot" id="dot"></span><span id="statustext">ready</span></div>
+</header>
+<main id="chat">
+  <div class="empty" id="empty">
+    <div class="empty-mark">✦</div>
+    <h2 class="empty-title">Read as it unfolds</h2>
+    <p>The first paragraph streams live. Everything after it waits in a speculative buffer until you ask for more.</p>
+    <div class="chips">
+      <button type="button" class="chip" data-prompt="How does the speculative buffer actually work?">How does the buffer work?</button>
+      <button type="button" class="chip" data-prompt="What happens to buffered text if I send a real message?">What drops the buffer?</button>
+      <button type="button" class="chip" data-prompt="Give me a short history of the Suez Canal.">Tell me about the Suez Canal</button>
+    </div>
+  </div>
+</main>
 <footer>
-  <div class="actions"><button id="continue"><span id="continuetext" class="continue-label"><span class="continue-label-text continue-label-continue">Continue</span><span class="continue-label-text continue-label-catchup">Catch up</span><span class="continue-label-text continue-label-pending">Continuing…</span></span><kbd>⏎</kbd></button></div>
-  <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…"></textarea><button id="send" title="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
+  <div class="actions"><button id="continue" type="button"><span id="continuetext" class="continue-label"><span class="continue-label-text continue-label-continue">Continue</span><span class="continue-label-text continue-label-catchup">Catch up</span><span class="continue-label-text continue-label-pending">Continuing…</span></span><kbd>⏎</kbd></button></div>
+  <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…" aria-label="Message"></textarea><button id="send" type="button" title="Send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
   <div class="hint">Enter sends · empty Enter catches up / continues · short acknowledgements keep the speculative draft</div>
 </footer>
 </div>
@@ -465,11 +412,19 @@ function sendText(text){
   startInference(old);
 }
 
+document.querySelectorAll('.chip[data-prompt]').forEach(function(chip){
+  chip.addEventListener('click',function(){
+    input.value=chip.dataset.prompt;
+    input.dispatchEvent(new Event('input'));
+    sendText(input.value);
+  });
+});
+
 continueBtn.addEventListener('click',doContinue);
 guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;});
 sendBtn.addEventListener('click',function(){sendText(input.value);});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
-input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,150)+'px';});
+input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
 input.focus();
 })();
 </script>

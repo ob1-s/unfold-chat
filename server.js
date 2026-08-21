@@ -16,6 +16,7 @@ const PAGE = readFileSync(new URL('./app/index.html', import.meta.url), 'utf8');
 const ANNOTATION_PAGE = readFileSync(new URL('./app/annotation.html', import.meta.url), 'utf8');
 const MIXED_PAGE = readFileSync(new URL('./app/mixed.html', import.meta.url), 'utf8');
 const EXPERIMENTS_CSS = readFileSync(new URL('./app/experiments.css', import.meta.url), 'utf8');
+const THEME_CSS = readFileSync(new URL('./app/theme.css', import.meta.url), 'utf8');
 const EXPERIMENTS_JS = readFileSync(new URL('./app/experiments.js', import.meta.url), 'utf8');
 const TRAJECTORIES_PAGE = readFileSync(new URL('./app/trajectories.html', import.meta.url), 'utf8');
 const TRAJECTORIES_CSS = readFileSync(new URL('./app/trajectories.css', import.meta.url), 'utf8');
@@ -685,6 +686,9 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && path === '/app/experiments.css') {
     return send(res, 200, 'text/css; charset=utf-8', EXPERIMENTS_CSS);
+  }
+  if (req.method === 'GET' && path === '/app/theme.css') {
+    return send(res, 200, 'text/css; charset=utf-8', THEME_CSS);
   }
   if (req.method === 'GET' && path === '/app/experiments.js') {
     return send(res, 200, 'text/javascript; charset=utf-8', EXPERIMENTS_JS);

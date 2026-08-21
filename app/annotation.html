@@ -4,22 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>stream talker · annotation</title>
+<meta name="description" content="Read the whole answer, highlight anything, and attach several notes before asking for a response.">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0f15'/%3E%3Cpath d='M32 11c2 13 8 19 21 21-13 2-19 8-21 21-2-13-8-19-21-21 13-2 19-8 21-21z' fill='%23e7c57c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/app/theme.css">
 <link rel="stylesheet" href="/app/experiments.css">
 </head>
 <body data-experiment="annotation">
 <div class="experiment-app">
-  <header>
-    <div class="brand">stream<b>talker</b></div>
-    <span class="experiment-badge">annotation only</span>
-    <nav class="experiment-nav"><a href="/">v1</a><a href="/mixed">mixed</a><a href="/trajectories">replay</a></nav>
-    <label class="mode-toggle" title="Use the experimental guidance prompt and cohesive chunking"><input id="guided" type="checkbox"><span>guided</span></label>
-    <div id="status"><span class="dot" id="dot"></span><span id="statustext">ready</span></div>
+  <header class="site-header">
+    <div class="brand"><span class="brand-mark">✦</span>stream<b>talker</b></div>
+    <nav class="header-nav seg-nav" aria-label="Experiments">
+      <a href="/">v1 · speculative</a>
+      <a href="/annotation" aria-current="page">annotate</a>
+      <a href="/mixed">mixed</a>
+      <a href="/trajectories">replay</a>
+    </nav>
+    <label class="switch guided-switch" title="Use the experimental guidance prompt and cohesive chunking">
+      <input id="guided" type="checkbox"><span>guided</span>
+    </label>
+    <div id="status" class="status-pill"><span class="dot" id="dot"></span><span id="statustext">ready</span></div>
   </header>
 
   <main id="chat">
     <div class="empty" id="empty">
-      <span class="mark">✦</span>
-      <p>Read the whole answer, highlight anything, and leave several notes before asking for a response.</p>
+      <div class="empty-mark">✎</div>
+      <h2 class="empty-title">Annotate as you read</h2>
+      <p>The complete answer arrives at once. Select any passage to attach a note — stack as many as you like, then respond to them together.</p>
     </div>
   </main>
 
@@ -40,7 +54,7 @@
   </aside>
 
   <footer>
-    <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…"></textarea><button id="send" title="Send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
+    <div class="composer"><textarea id="input" rows="1" placeholder="Type a message…" aria-label="Message"></textarea><button id="send" type="button" title="Send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button></div>
     <div class="hint">Select text in an answer to annotate it · Enter sends · Shift+Enter adds a line</div>
   </footer>
 </div>
