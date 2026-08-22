@@ -66,3 +66,32 @@ node server.js -m <gemini-model-id> \
   -b https://generativelanguage.googleapis.com/v1beta/openai \
   -k GEMINI_API_KEY
 ```
+
+## Hosted demo (BYO quota)
+
+`server.js` is the self-host path. To share a link instead, deploy the same app
+as a single Worker (`worker.js`) that serves `app/` and implements `/api/*`
+against Workers AI:
+
+- The first `FREE_PER_VISITOR` messages per visitor run on the host's account
+  (per-visitor daily counter + global daily ceiling in KV). Worst case abuse
+  burns only the owner's free daily neurons, never paid quota.
+- After that, the visitor connects their own Cloudflare account — OAuth PKCE,
+  same pattern as [byo-quota](https://github.com/ob1-s/byo-quota) — and
+  inference is relayed with *their* bearer to *their* account. No login wall
+  before trying; no mock streams.
+- Turn state lives in a Durable Object; the SSE wire protocol is identical to
+  `server.js`, so the frontend needs nothing beyond the connect banner.
+
+```sh
+wrangler kv namespace create QUOTA   # paste the id into wrangler.toml
+# optional: reuse the OAuth client from byo-quota and set CLIENT_ID in [vars]
+#           (redirect_uris / allowed_cors_origins must include your deploy URL)
+wrangler secret put QUOTA_SALT       # optional, per-visitor hash salt
+wrangler deploy
+```
+
+Model note: Workers AI free-tier models are weaker than frontier APIs; the
+buffering/reveal interaction is the thesis of the demo, not the prose. BYO
+visitors on a paid plan get bigger models through the same path.
+

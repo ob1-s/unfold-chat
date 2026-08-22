@@ -45,6 +45,7 @@
   <div class="hint">Enter sends · empty Enter catches up / continues · short acknowledgements keep the speculative draft</div>
 </footer>
 </div>
+<script src="/app/byo.js" defer></script>
 <script>
 // ---- demo mock: intercepts fetch so this page runs standalone, no server/API key ----
 if(location.protocol==='file:'||new URLSearchParams(location.search).has('demo'))(function(){
@@ -323,6 +324,7 @@ function handleEvent(d){
   if(d.type==='turn'){
     state.turnId=d.turnId;state.generating=true;state.turnEnded=false;setStatus('generating…',true);return;
   }
+  if(d.type==='quota'){window.dispatchEvent(new CustomEvent('quota-exhausted',{detail:d}));return;}
   if(d.type==='chunk_open'){onChunkOpen(d);return;}
   if(d.type==='delta'){onDelta(d);return;}
   if(d.type==='chunk_end'){onChunkEnd(d);return;}

@@ -179,3 +179,12 @@ footer{flex:none;padding:2px var(--scrollbar-gutter) max(16px,env(safe-area-inse
   *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
   main{scroll-behavior:auto}
 }
+
+.byo-banner{position:fixed;left:50%;bottom:max(100px,calc(84px + env(safe-area-inset-bottom)));transform:translate(-50%,12px);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(92vw,540px);padding:11px 12px 11px 15px;border-radius:14px;background:linear-gradient(120deg,rgba(231,197,124,.1),rgba(143,155,255,.07)),var(--surface);border:1px solid rgba(231,197,124,.35);box-shadow:var(--shadow-2);color:var(--text);font-size:12.5px;line-height:1.5;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease)}
+.byo-banner.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.byo-text b{color:var(--note)}
+.byo-connect{flex:none;border:1px solid rgba(231,197,124,.4);background:linear-gradient(135deg,rgba(231,197,124,.18),rgba(180,154,255,.16));border-radius:9px;padding:8px 12px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+.byo-connect:hover{border-color:var(--note);filter:brightness(1.08)}
+.byo-close{flex:none;width:22px;height:22px;border:0;background:none;color:var(--text-3);font-size:14px;border-radius:6px}
+.byo-close:hover{color:var(--text);background:rgba(255,255,255,.06)}
+@media(max-width:700px){.byo-banner{bottom:max(88px,calc(76px + env(safe-area-inset-bottom)));font-size:12px}}

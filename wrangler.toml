@@ -1,0 +1,35 @@
+name = "unfold-chat"
+main = "worker.js"
+compatibility_date = "2026-01-15"
+
+[assets]
+directory = "./app"
+binding = "ASSETS"
+
+[ai]
+binding = "AI"
+
+[[durable_objects.bindings]]
+name = "TURN"
+class_name = "TurnDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TurnDO"]
+
+[[kv_namespaces]]
+binding = "QUOTA"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+MODEL = "@cf/meta/llama-3.2-3b-instruct"
+CLIENT_ID = ""
+AUTH_URL = "https://dash.cloudflare.com/oauth2/auth"
+TOKEN_URL = "https://dash.cloudflare.com/oauth2/token"
+SCOPES = "ai.read offline_access"
+FREE_PER_VISITOR = "3"
+FREE_GLOBAL_DAILY = "300"
+
+# [observability] — optional but recommended
+[observability]
+enabled = true

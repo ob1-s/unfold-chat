@@ -142,6 +142,7 @@ function updateContinue(){
 }
 function handleEvent(d){
   if(d.type==='turn'){state.turnId=d.turnId;state.generating=true;state.turnEnded=false;setStatus('generating…',true);return;}
+  if(d.type==='quota'){window.dispatchEvent(new CustomEvent('quota-exhausted',{detail:d}));return;}
   if(d.type==='chunk_open'){onChunkOpen(d);return;}
   if(d.type==='delta'){onDelta(d);return;}
   if(d.type==='chunk_end'){onChunkEnd(d);return;}
