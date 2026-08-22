@@ -615,6 +615,13 @@ const unfoldWorker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) return handleApi(request, env, ctx, url);
+    // The asset root is ./app; server.js self-hosting exposes it under /app/.
+    // Rewrite so the same HTML works on both runtimes.
+    if (url.pathname === '/app' || url.pathname.startsWith('/app/')) {
+      const inner = new URL(url);
+      inner.pathname = url.pathname.slice(4) || '/';
+      return env.ASSETS.fetch(new Request(inner, request));
+    }
     return env.ASSETS.fetch(request);
   },
 };
