@@ -140,12 +140,22 @@ async function discoverAccount() {
       headers: { Authorization: 'Bearer ' + SESSION.accessToken },
     });
     var data = await res.json().catch(function () { return {}; });
-    if (res.ok && data.result && data.result.length) SESSION.accountId = data.result[0].id;
-  } catch (e) {}
+    if (res.ok && data.result && data.result.length) {
+      SESSION.accountId = data.result[0].id;
+    } else {
+      SESSION.accountError = 'HTTP ' + res.status + ': ' + JSON.stringify(data.errors || data).slice(0, 160);
+    }
+  } catch (e) {
+    SESSION.accountError = e.message;
+  }
   if (!SESSION.accountId) {
-    var pasted = prompt('Paste your Cloudflare Account ID (dash.cloudflare.com → Workers & Pages):');
+    var pasted = prompt(
+      'Could not auto-discover your account ID (' + (SESSION.accountError || 'no accounts visible to this token') + ').\n' +
+      'Paste your Cloudflare Account ID (dash.cloudflare.com → Workers & Pages):'
+    );
     if (pasted) SESSION.accountId = pasted.trim().toLowerCase();
   }
+
   persist();
 }
 

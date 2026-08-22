@@ -26,7 +26,7 @@ MODEL = "@cf/meta/llama-3.2-3b-instruct"
 CLIENT_ID = "f8cec12cef5b67244c5871611a11921c"
 AUTH_URL = "https://dash.cloudflare.com/oauth2/auth"
 TOKEN_URL = "https://dash.cloudflare.com/oauth2/token"
-SCOPES = "ai.read offline_access"
+SCOPES = "ai.read account-settings.read account-analytics.read offline_access"
 FREE_PER_VISITOR = "3"
 FREE_GLOBAL_DAILY = "300"
 
