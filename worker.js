@@ -354,7 +354,7 @@ export class TurnDO {
     this.write({ type: 'state', status: 'starting', hidden: 0, generating: true, waiting: false });
 
     this.state.waitUntil(this.generate());
-    this.state.setAlarm(Date.now() + 60 * 60 * 1000);
+    this.state.storage.setAlarm(Date.now() + 60 * 60 * 1000);
 
     return new Response(readable, { headers: SSE_HEADERS });
   }

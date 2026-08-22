@@ -19,11 +19,11 @@ new_sqlite_classes = ["TurnDO"]
 
 [[kv_namespaces]]
 binding = "QUOTA"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "2c58246e3d9a4378b74eef6e1885206a"
 
 [vars]
 MODEL = "@cf/meta/llama-3.2-3b-instruct"
-CLIENT_ID = ""
+CLIENT_ID = "f8cec12cef5b67244c5871611a11921c"
 AUTH_URL = "https://dash.cloudflare.com/oauth2/auth"
 TOKEN_URL = "https://dash.cloudflare.com/oauth2/token"
 SCOPES = "ai.read offline_access"
