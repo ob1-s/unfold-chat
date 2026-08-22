@@ -235,7 +235,7 @@ async function openUpstream(env, auth) {
   }
 
   const upstream = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(auth.accountId)}/ai/run/${encodeURIComponent(env.MODEL)}`,
+    `https://api.cloudflare.com/client/v4/accounts/${auth.accountId}/ai/run/${env.MODEL}`,
     {
       method: 'POST',
       headers: { authorization: 'Bearer ' + auth.bearer, 'content-type': 'application/json' },
