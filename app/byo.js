@@ -7,6 +7,7 @@
 
 var SS_KEY = 'unfold_byo_session';
 var PKCE_KEY = 'unfold_byo_pkce';
+var RETURN_KEY = 'byo_oauth_return';
 var CFG = null;
 var SESSION = null;
 var banner = null;
@@ -159,6 +160,7 @@ async function startOAuth() {
     code_challenge: challenge,
     code_challenge_method: 'S256',
   });
+  try { sessionStorage.setItem(RETURN_KEY, '1'); } catch (e) {}
   location.assign(CFG.authUrl + '?' + q.toString());
 }
 

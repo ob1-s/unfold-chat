@@ -85,7 +85,10 @@ function saveThread(){
   try{sessionStorage.setItem(THREAD_KEY,JSON.stringify({sessionId:state.sessionId,sessionSeq:state.sessionSeq,guided:state.guided,timeline:state.timeline.slice(-40)}));}catch(e){}
 }
 function restoreThread(){
-  var saved=null;
+  var saved=null,returning=false;
+  try{returning=sessionStorage.getItem('byo_oauth_return')==='1';}catch(e){}
+  try{sessionStorage.removeItem('byo_oauth_return');}catch(e){}
+  if(!returning){try{sessionStorage.removeItem(THREAD_KEY);}catch(e){}return;}
   try{saved=JSON.parse(sessionStorage.getItem(THREAD_KEY)||'null');}catch(e){}
   if(!saved||!saved.timeline||!saved.timeline.length)return;
   state.sessionId=saved.sessionId||state.sessionId;
