@@ -167,9 +167,9 @@ function applyContinueUI(show,behind,pending){
 function updateContinue(){
   if(!continueBtn)return;
   var c=state.current,behind=!!(c&&c.rendered.length<c.target.length),canContinue=!state.turnEnded&&state.hidden>0,show=!!state.turnId&&(behind||canContinue),pending=state.continuePending&&!behind;
-  if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
+  if((pending&&!continueBtn.classList.contains('pending'))||continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
   if(ucTimer)clearTimeout(ucTimer);
-  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},180);
+  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},300);
 }
 function handleEvent(d){
   if(d.type==='turn'){state.turnId=d.turnId;state.generating=true;state.turnEnded=false;setStatus('generating…',true);return;}
@@ -257,7 +257,7 @@ function renderAnnotations(){
 
 if(continueBtn)continueBtn.addEventListener('click',doContinue);
 guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;saveThread();});
-sendBtn.addEventListener('click',function(){sendText(input.value);});
+  sendBtn.addEventListener('click',function(){sendText(input.value);input.focus();});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,150)+'px';});
 if(addAnnotationBtn)addAnnotationBtn.addEventListener('click',addAnnotation);

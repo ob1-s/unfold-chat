@@ -341,9 +341,11 @@ function updateContinue(){
   var canContinue=!state.turnEnded&&state.hidden>0;
   var show=!!state.turnId&&(behind||canContinue);
   var pending=state.continuePending&&!behind;
-  if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
+  // Click ack and show/hide apply at once; label flips are debounced long
+  // enough that a transient catch-up blip during buffer drain never renders.
+  if((pending&&!continueBtn.classList.contains('pending'))||continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
   if(ucTimer)clearTimeout(ucTimer);
-  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},180);
+  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},300);
 }
 
 function handleEvent(d){
@@ -445,12 +447,13 @@ document.querySelectorAll('.chip[data-prompt]').forEach(function(chip){
     input.value=chip.dataset.prompt;
     input.dispatchEvent(new Event('input'));
     sendText(input.value);
+    input.focus();
   });
 });
 
 continueBtn.addEventListener('click',doContinue);
 guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;saveThread();});
-sendBtn.addEventListener('click',function(){sendText(input.value);});
+sendBtn.addEventListener('click',function(){sendText(input.value);input.focus();});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
 restoreThread();

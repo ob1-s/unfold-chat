@@ -332,7 +332,7 @@ function updateReplayControls(replay){
   replay.buttonTarget=target;replay.buttonMode=mode;state.waiting=show;state.buffered=bufferedSections(replay);
   var uc=show&&mode==='catchup';
   if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,uc);}
-  else{if(ucTimer)clearTimeout(ucTimer);ucTimer=setTimeout(function(){applyContinueUI(show,uc);},180);}
+  else{if(ucTimer)clearTimeout(ucTimer);ucTimer=setTimeout(function(){applyContinueUI(show,uc);},300);}
   if(show!==wasWaiting)scrollLatest(false);
 
   var status,answer;
