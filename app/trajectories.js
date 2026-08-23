@@ -141,6 +141,7 @@ function clearContinue(){
     if(state.replay.resolve)state.replay.resolve(false);
     state.replay=null;
   }
+  if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}
   continueBtn.classList.remove('on','catch-up','pending');
   continueBtn.disabled=true;
 }
@@ -314,6 +315,12 @@ function bufferedSections(replay){
   return count;
 }
 
+var ucTimer=null;
+function applyContinueUI(show,behind){
+  if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}
+  continueBtn.classList.toggle('on',show);continueBtn.classList.toggle('catch-up',behind);continueBtn.classList.remove('pending');continueBtn.disabled=!show;
+}
+
 function updateReplayControls(replay){
   var current=replay.visibleIndex,next=current+1,target=-1,mode='',visibleComplete=replay.visibleComplete;
   if(!visibleComplete&&current>0&&!replay.liveRender&&replay.generated[current]>replay.visibleChars+1){
@@ -323,7 +330,9 @@ function updateReplayControls(replay){
   }
   var show=target>=0,wasWaiting=state.waiting;
   replay.buttonTarget=target;replay.buttonMode=mode;state.waiting=show;state.buffered=bufferedSections(replay);
-  continueBtn.classList.toggle('on',show);continueBtn.classList.toggle('catch-up',show&&mode==='catchup');continueBtn.classList.remove('pending');continueBtn.disabled=!show;
+  var uc=show&&mode==='catchup';
+  if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,uc);}
+  else{if(ucTimer)clearTimeout(ucTimer);ucTimer=setTimeout(function(){applyContinueUI(show,uc);},180);}
   if(show!==wasWaiting)scrollLatest(false);
 
   var status,answer;
@@ -342,6 +351,7 @@ function updateReplayControls(replay){
 function finishUnfoldReplay(replay,ok){
   if(replay.raf)cancelAnimationFrame(replay.raf);
   state.replay=null;state.waiting=false;state.buffered=0;
+  if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}
   continueBtn.classList.remove('on','catch-up','pending');continueBtn.disabled=true;
   replay.resolve(ok);
 }
@@ -367,7 +377,7 @@ function revealUnfold(){
   state.scrollLock=state.scrollLock||rapid;
   state.keyboardContinue=false;state.lastRevealAt=now;
   replay.buttonTarget=-1;replay.buttonMode='';
-  state.waiting=false;continueBtn.classList.remove('on','catch-up','pending');continueBtn.disabled=true;
+  state.waiting=false;if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}continueBtn.classList.remove('on','catch-up','pending');continueBtn.disabled=true;
   if(target!==replay.visibleIndex){
     replay.visibleIndex=target;replay.visibleContent=addAnswerRow(true);replay.visibleChars=0;replay.visibleComplete=false;replay.markupChars=-1;
     if(!state.scrollLock)beginScrollTransition();else state.scrollTransition=null;

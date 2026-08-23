@@ -38,7 +38,11 @@ window.fetch = function (url, opt) {
     if (SESSION.accountId) opt.headers['X-CF-Account-Id'] = SESSION.accountId;
   }
   return nativeFetch(u, opt).then(function (res) {
-    if (res.status === 402) showBanner('exhausted');
+    if (res.status === 402) {
+      res.clone().json().then(function (b) {
+        showBanner('exhausted', { used: b && b.used, limit: b && b.limit });
+      }).catch(function () { showBanner('exhausted'); });
+    }
     return res;
   });
 };

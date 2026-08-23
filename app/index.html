@@ -325,6 +325,14 @@ function onChunkEnd(d){
   if(c.replaying||c.rendered.length<c.target.length){startReplay();return;}finishCurrentChunk();
 }
 
+var ucTimer=null;
+function applyContinueUI(show,behind,pending){
+  if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}
+  continueBtn.classList.toggle('on',show);
+  continueBtn.classList.toggle('catch-up',behind);
+  continueBtn.classList.toggle('pending',pending);
+  continueBtn.disabled=!show;
+}
 function updateContinue(){
   var c=state.current,behind=!!(c&&c.rendered.length<c.target.length);
   // Continue means "there is another readable frontier", not "the model is
@@ -332,10 +340,10 @@ function updateContinue(){
   // quiet; the button appears when a later chunk has produced text.
   var canContinue=!state.turnEnded&&state.hidden>0;
   var show=!!state.turnId&&(behind||canContinue);
-  continueBtn.classList.toggle('on',show);
-  continueBtn.classList.toggle('catch-up',behind);
-  continueBtn.classList.toggle('pending',state.continuePending&&!behind);
-  continueBtn.disabled=!show;
+  var pending=state.continuePending&&!behind;
+  if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
+  if(ucTimer)clearTimeout(ucTimer);
+  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},180);
 }
 
 function handleEvent(d){
@@ -388,7 +396,7 @@ function startInference(supersedeId){
   state.sessionSeq++;
   fetch('/api/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({history:state.timeline,presentation:'speculative',guided:state.guided,supersede:supersedeId||null,sessionId:state.sessionId,sessionSeq:state.sessionSeq}),signal:ctrl.signal})
     .then(function(r){return consumeSse(r,ctrl);})
-    .catch(function(e){if(ctrl.signal.aborted)return;setStatus('request failed: '+e.message,false);state.generating=false;updateContinue();});
+    .catch(function(e){if(ctrl.signal.aborted)return;state.generating=false;updateContinue();if(/HTTP 402/.test(e.message)){setStatus('free limit reached',false);return;}setStatus('request failed: '+e.message,false);});
 }
 
 function requestContinue(){

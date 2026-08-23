@@ -159,10 +159,17 @@ function onDelta(d){
 }
 function onChunkEnd(d){var c=state.current;if(!c||c.index!==d.index)return;c.ended=true;if(c.replaying||c.rendered.length<c.target.length){startReplay();return;}finishCurrentChunk();}
 
+var ucTimer=null;
+function applyContinueUI(show,behind,pending){
+  if(ucTimer){clearTimeout(ucTimer);ucTimer=null;}
+  continueBtn.classList.toggle('on',show);continueBtn.classList.toggle('catch-up',behind);continueBtn.classList.toggle('pending',pending);continueBtn.disabled=!show;
+}
 function updateContinue(){
   if(!continueBtn)return;
-  var c=state.current,behind=!!(c&&c.rendered.length<c.target.length),canContinue=!state.turnEnded&&state.hidden>0,show=!!state.turnId&&(behind||canContinue);
-  continueBtn.classList.toggle('on',show);continueBtn.classList.toggle('catch-up',behind);continueBtn.classList.toggle('pending',state.continuePending&&!behind);continueBtn.disabled=!show;
+  var c=state.current,behind=!!(c&&c.rendered.length<c.target.length),canContinue=!state.turnEnded&&state.hidden>0,show=!!state.turnId&&(behind||canContinue),pending=state.continuePending&&!behind;
+  if(continueBtn.classList.contains('on')!==!!show){applyContinueUI(show,behind,pending);return;}
+  if(ucTimer)clearTimeout(ucTimer);
+  ucTimer=setTimeout(function(){applyContinueUI(show,behind,pending);},180);
 }
 function handleEvent(d){
   if(d.type==='turn'){state.turnId=d.turnId;state.generating=true;state.turnEnded=false;setStatus('generating…',true);return;}
@@ -198,7 +205,7 @@ function consumeSse(response,ctrl){
 function startInference(supersedeId){
   if(state.streamCtrl)state.streamCtrl.abort();
   var ctrl=new AbortController();state.streamCtrl=ctrl;state.turnId=null;state.generating=true;state.hidden=0;state.continuePending=false;state.lastAssistant=false;state.turnEnded=false;updateContinue();setStatus('connecting…',true);state.sessionSeq++;
-  fetch('/api/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({history:state.timeline,presentation:presentation,guided:state.guided,supersede:supersedeId||null,sessionId:state.sessionId,sessionSeq:state.sessionSeq}),signal:ctrl.signal}).then(function(r){return consumeSse(r,ctrl);}).catch(function(e){if(ctrl.signal.aborted)return;state.generating=false;updateContinue();setStatus('request failed: '+e.message,false);});
+  fetch('/api/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({history:state.timeline,presentation:presentation,guided:state.guided,supersede:supersedeId||null,sessionId:state.sessionId,sessionSeq:state.sessionSeq}),signal:ctrl.signal}).then(function(r){return consumeSse(r,ctrl);}).catch(function(e){if(ctrl.signal.aborted)return;state.generating=false;updateContinue();if(/HTTP 402/.test(e.message)){setStatus('free limit reached',false);return;}setStatus('request failed: '+e.message,false);});
 }
 function requestContinue(){
   if(!continueBtn||!state.turnId||state.continuePending)return;
