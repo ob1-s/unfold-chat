@@ -9,3 +9,4 @@ bak/
 *.pem
 *.p12
 *.pfx
+.wrangler/

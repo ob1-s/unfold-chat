@@ -10,8 +10,13 @@ var PKCE_KEY = 'unfold_byo_pkce';
 var CFG = null;
 var SESSION = null;
 var banner = null;
+var pill = null;
+var menu = null;
 
 function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 function load() {
   try { SESSION = JSON.parse(localStorage.getItem(SS_KEY) || 'null'); } catch (e) { SESSION = null; }
 }
@@ -37,7 +42,64 @@ window.fetch = function (url, opt) {
   });
 };
 
-/* ---------- banner ---------- */
+/* ---------- header pill: persistent connect / account state ---------- */
+function ensurePill() {
+  if (pill || !document.querySelector) return null;
+  var hdr = document.querySelector('header.site-header') || document.querySelector('header');
+  if (!hdr) return null;
+  pill = document.createElement('button');
+  pill.type = 'button';
+  pill.className = 'byo-pill';
+  pill.setAttribute('aria-haspopup', 'true');
+  pill.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (SESSION && SESSION.accessToken) { if (menu) closeMenu(); else openMenu(); }
+    else if (CFG && CFG.byoEnabled) startOAuth();
+  });
+  hdr.appendChild(pill);
+  renderPill();
+  return pill;
+}
+function renderPill() {
+  if (!pill) return;
+  closeMenu();
+  pill.classList.remove('conn', 'warn', 'busy');
+  if (SESSION && SESSION.accessToken) {
+    var tag = SESSION.accountId ? SESSION.accountId.slice(0, 4) : '····';
+    pill.classList.add('conn');
+    pill.innerHTML = '<span class="byo-dot"></span>your neurons · <b>' + esc(tag) + '</b>';
+    pill.title = 'Inference runs on your Cloudflare account — click for options';
+  } else if (CFG && CFG.byoEnabled) {
+    pill.textContent = 'Connect';
+    pill.title = 'Connect your free Cloudflare account when the demo messages run out';
+  } else if (CFG && !CFG.byoEnabled) {
+    pill.parentNode && pill.parentNode.removeChild(pill);
+    pill = null;
+  }
+}
+function closeMenu() {
+  if (!menu) return;
+  menu.remove(); menu = null;
+  document.removeEventListener('click', closeMenu, true);
+}
+function openMenu() {
+  closeMenu();
+  menu = document.createElement('div');
+  menu.className = 'byo-menu';
+  menu.innerHTML =
+    '<div class="byo-menu-title">Cloudflare account</div>' +
+    '<div class="byo-menu-id"></div>' +
+    '<button type="button" class="byo-menu-disconnect">Disconnect</button>';
+  menu.querySelector('.byo-menu-id').textContent = SESSION.accountId || 'account id unavailable';
+  menu.querySelector('.byo-menu-disconnect').addEventListener('click', function () { closeMenu(); disconnect(); });
+  document.body.appendChild(menu);
+  var r = pill.getBoundingClientRect();
+  menu.style.top = Math.round(r.bottom + 8) + 'px';
+  menu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+  setTimeout(function () { document.addEventListener('click', closeMenu, true); }, 0);
+}
+
+/* ---------- banner: only for moments that need a real decision ---------- */
 function ensureBanner() {
   if (banner) return banner;
   banner = document.createElement('div');
@@ -57,13 +119,9 @@ function showBanner(kind, detail) {
   var text = b.querySelector('.byo-text');
   var connect = b.querySelector('.byo-connect');
   connect.hidden = false;
-  if (kind === 'connected') {
-    text.textContent = 'Connected · inference runs on your free daily neurons';
-    connect.textContent = 'Disconnect';
-    connect.onclick = function () { disconnect(); };
-  } else if (kind === 'exhausted') {
-    text.innerHTML = (detail && detail.used !=0 ? 'Free demo messages used up (' : '') +
-      'Free messages used up (' + ((detail && detail.used) || '?') + '/' + ((detail && detail.limit) || '?') + '). ' +
+  if (kind === 'exhausted') {
+    if (pill) pill.classList.add('warn');
+    text.innerHTML = 'Free messages used up (' + ((detail && detail.used) || '?') + '/' + ((detail && detail.limit) || '?') + '). ' +
       (CFG && CFG.byoEnabled
         ? 'Connect your free Cloudflare account to keep going — it runs on <b>your</b> neurons, not ours.'
         : 'Self-host to continue (see README).');
@@ -72,9 +130,6 @@ function showBanner(kind, detail) {
       if (CFG && CFG.byoEnabled) startOAuth();
       else window.open('https://github.com/ob1-s/unfold-chat', '_blank', 'noopener');
     };
-  } else if (kind === 'connecting') {
-    text.textContent = 'Connecting your Cloudflare account…';
-    connect.hidden = true;
   } else {
     text.textContent = String(detail || 'Something went wrong.');
     connect.textContent = 'Retry';
@@ -90,7 +145,7 @@ function b64url(buf) {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 async function startOAuth() {
-  showBanner('connecting');
+  if (pill) { pill.classList.add('busy'); pill.textContent = 'connecting…'; }
   var verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
   var challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   var state = b64url(crypto.getRandomValues(new Uint8Array(16)));
@@ -112,7 +167,7 @@ async function finishOAuth(params) {
   try { saved = JSON.parse(sessionStorage.getItem(PKCE_KEY) || '{}'); } catch (e) { saved = {}; }
   history.replaceState(null, '', '/');
   if (params.get('state') !== saved.state) throw new Error('OAuth state mismatch');
-  showBanner('connecting');
+  if (pill) { pill.classList.add('busy'); pill.textContent = 'connecting…'; }
   var body = new URLSearchParams({
     grant_type: 'authorization_code',
     code: params.get('code'),
@@ -130,8 +185,7 @@ async function finishOAuth(params) {
   };
   persist();
   await discoverAccount();
-  showBanner('connected');
-  setTimeout(hideBanner, 4000);
+  renderPill();
 }
 
 async function discoverAccount() {
@@ -188,7 +242,9 @@ async function disconnect() {
   }
   SESSION = null;
   persist();
-  location.reload();
+  renderPill();
+  if (banner) banner.classList.remove('on');
+  window.dispatchEvent(new CustomEvent('byo-disconnected'));
 }
 
 /* ---------- boot ---------- */
@@ -199,21 +255,23 @@ async function boot() {
   } catch (e) {
     CFG = { byoEnabled: false };
   }
+  ensurePill();
   var params = new URLSearchParams(location.search);
   if (params.get('code') && params.get('state')) {
     try {
       await finishOAuth(params);
     } catch (e) {
       showBanner('error', e.message);
+      renderPill();
     }
     return;
   }
   if (SESSION && SESSION.accessToken) {
     if (Math.floor(Date.now() / 1000) > (SESSION.expiresAt || Infinity)) {
       var ok = await refreshAccessToken();
-      if (!ok) { SESSION = null; persist(); return; }
+      if (!ok) { SESSION = null; persist(); renderPill(); return; }
     }
-    if (SESSION.accountId) showBanner('connected'), setTimeout(hideBanner, 4000);
+    renderPill();
   }
   window.addEventListener('quota-exhausted', function (ev) {
     showBanner('exhausted', ev.detail || {});

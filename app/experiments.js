@@ -74,7 +74,28 @@ function row(role,text,ack){
   var content=document.createElement('div');content.className='message-text';content.innerHTML=md(text||'');box.appendChild(content);r.appendChild(box);chat.appendChild(r);scrollDown();
   return {row:r,msg:content};
 }
-function addTimeline(role,content){if(content)state.timeline.push({role:role,content:content});}
+function addTimeline(role,content){
+  if(content){
+    state.timeline.push({role:role,content:content});
+    saveThread();
+  }
+}
+var THREAD_KEY='unfold_thread_'+presentation;
+function saveThread(){
+  try{sessionStorage.setItem(THREAD_KEY,JSON.stringify({sessionId:state.sessionId,sessionSeq:state.sessionSeq,guided:state.guided,timeline:state.timeline.slice(-40)}));}catch(e){}
+}
+function restoreThread(){
+  var saved=null;
+  try{saved=JSON.parse(sessionStorage.getItem(THREAD_KEY)||'null');}catch(e){}
+  if(!saved||!saved.timeline||!saved.timeline.length)return;
+  state.sessionId=saved.sessionId||state.sessionId;
+  state.sessionSeq=saved.sessionSeq||0;
+  state.guided=!!saved.guided;
+  guidedInput.checked=state.guided;
+  saved.timeline.forEach(function(m){row(m.role,m.content,false);});
+  state.lastAssistant=saved.timeline[saved.timeline.length-1].role==='assistant';
+  var e=document.getElementById('empty');if(e)e.remove();
+}
 function addUser(content,display,ack){row('user',display||content,ack);addTimeline('user',content);state.lastAssistant=false;}
 function newAssistantSegment(){
   var r=row('assistant','',false);if(state.lastAssistant)r.row.classList.add('continuation');
@@ -225,7 +246,7 @@ function renderAnnotations(){
 }
 
 if(continueBtn)continueBtn.addEventListener('click',doContinue);
-guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;});
+guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;saveThread();});
 sendBtn.addEventListener('click',function(){sendText(input.value);});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,150)+'px';});
@@ -235,5 +256,6 @@ if(respondBtn)respondBtn.addEventListener('click',function(){if(state.annotation
 chat.addEventListener('mouseup',function(){setTimeout(captureSelection,0);});
 chat.addEventListener('keyup',captureSelection);
 annotationInput.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();addAnnotation();}});
+restoreThread();
 input.focus();
 })();

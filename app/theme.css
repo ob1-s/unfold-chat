@@ -188,3 +188,17 @@ footer{flex:none;padding:2px var(--scrollbar-gutter) max(16px,env(safe-area-inse
 .byo-close{flex:none;width:22px;height:22px;border:0;background:none;color:var(--text-3);font-size:14px;border-radius:6px}
 .byo-close:hover{color:var(--text);background:rgba(255,255,255,.06)}
 @media(max-width:700px){.byo-banner{bottom:max(88px,calc(76px + env(safe-area-inset-bottom)));font-size:12px}}
+
+/* ---------- BYO header pill + account menu ---------- */
+.byo-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--surface-2);border-radius:var(--r-full);padding:6px 12px;font-family:var(--font-ui);font-size:11.5px;font-weight:500;line-height:1;color:var(--text-2);white-space:nowrap;cursor:pointer;transition:border-color .18s var(--ease),color .18s var(--ease),background .18s var(--ease)}
+.byo-pill b{color:var(--text);font-weight:600;font-family:var(--font-mono)}
+.byo-pill:hover{border-color:rgba(143,155,255,.45);color:var(--text)}
+.byo-pill .byo-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px rgba(65,209,146,.55);flex:none}
+.byo-pill.warn{border-color:rgba(231,197,124,.5);color:var(--note)}
+.byo-pill.busy{color:var(--text-3);pointer-events:none}
+.byo-menu{position:fixed;z-index:60;min-width:210px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:10px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.byo-menu-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-3);margin-bottom:4px}
+.byo-menu-id{font-family:var(--font-mono);font-size:11.5px;color:var(--text-2);margin-bottom:10px;word-break:break-all}
+.byo-menu-disconnect{width:100%;border:1px solid rgba(255,120,120,.28);background:none;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:600;color:#ff9a9a;cursor:pointer}
+.byo-menu-disconnect:hover{background:rgba(255,120,120,.08);border-color:rgba(255,120,120,.5)}
+@media(max-width:700px){.byo-pill{padding:6px 9px;font-size:11px}.byo-pill b{display:none}}

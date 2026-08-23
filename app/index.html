@@ -193,7 +193,22 @@ function row(role,text,ack){
   if(role==='assistant'&&!ack){var av=document.createElement('div');av.className='avatar';av.textContent='✦';r.appendChild(av);}
   var m=document.createElement('div');m.className='msg';m.innerHTML=md(text||'');r.appendChild(m);chat.appendChild(r);scrollDown();return {row:r,msg:m};
 }
-function addTimeline(role,content){if(content)state.timeline.push({role:role,content:content});}
+var THREAD_KEY='unfold_thread_speculative';
+function saveThread(){
+  try{sessionStorage.setItem(THREAD_KEY,JSON.stringify({sessionId:state.sessionId,sessionSeq:state.sessionSeq,guided:state.guided,timeline:state.timeline.slice(-40)}));}catch(e){}
+}
+function restoreThread(){
+  var saved=null;
+  try{saved=JSON.parse(sessionStorage.getItem(THREAD_KEY)||'null');}catch(e){}
+  if(!saved||!saved.timeline||!saved.timeline.length)return;
+  state.sessionId=saved.sessionId||state.sessionId;
+  state.sessionSeq=saved.sessionSeq||0;
+  state.guided=!!saved.guided;
+  guidedInput.checked=state.guided;
+  saved.timeline.forEach(function(m){row(m.role,m.content,false);});
+  state.lastAssistant=saved.timeline[saved.timeline.length-1].role==='assistant';
+}
+function addTimeline(role,content){if(content){state.timeline.push({role:role,content:content});saveThread();}}
 function addUser(text,ack){row('user',text,ack);addTimeline('user',text);state.lastAssistant=false;}
 
 function newAssistantSegment(){
@@ -423,10 +438,11 @@ document.querySelectorAll('.chip[data-prompt]').forEach(function(chip){
 });
 
 continueBtn.addEventListener('click',doContinue);
-guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;});
+guidedInput.addEventListener('change',function(){state.guided=guidedInput.checked;saveThread();});
 sendBtn.addEventListener('click',function(){sendText(input.value);});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText(input.value);}});
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
+restoreThread();
 input.focus();
 })();
 </script>
